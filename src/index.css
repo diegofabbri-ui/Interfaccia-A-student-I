@@ -39,71 +39,51 @@
 }
 
 :root {
-  /* Palette Semantica - Neo-Brutalist / Cazzuta */
-  --bg-dashboard-base: #e5e5e5;
+  /* Palette Minimalista Italiana (Monocromatica) */
+  --bg-dashboard-base: #fafafa; /* zinc-50 */
   --surface-primary: #ffffff;
-  --surface-secondary: #f4f4f0;
-  --surface-tertiary: #e5e5e5;
+  --surface-secondary: #f4f4f5; /* zinc-100 */
+  --surface-tertiary: #e4e4e7; /* zinc-200 */
   --surface-interactive: #ffffff;
-  --surface-interactive-hover: #f0f0f0;
+  --surface-interactive-hover: #fafafa;
   
-  --text-primary: #000000;
-  --text-secondary: #333333;
+  --text-primary: #18181b; /* zinc-900 */
+  --text-secondary: #71717a; /* zinc-500 */
   --text-on-brand: #ffffff;
   
-  --brand-primary: #000000;
-  --brand-hover: #222222;
-  --brand-secondary: #e5e5e5;
+  --brand-primary: #18181b; /* zinc-900 */
+  --brand-hover: #27272a; /* zinc-800 */
+  --brand-secondary: #f4f4f5; /* zinc-100 */
   
-  --status-success: #00c853;
-  --status-success-bg: #b9f6ca;
-  --status-danger: #d50000;
-  --status-danger-bg: #ff8a80;
-  --status-warning: #ffd600;
-  --status-warning-bg: #ffff8d;
-  --status-info: #2962ff;
-  --status-info-bg: #82b1ff;
+  --status-success: #18181b; 
+  --status-success-bg: #f4f4f5; 
+  --status-danger: #18181b; 
+  --status-danger-bg: #f4f4f5; 
+  --status-warning: #18181b; 
+  --status-warning-bg: #f4f4f5; 
+  --status-info: #18181b; 
+  --status-info-bg: #f4f4f5; 
   
-  --border-subtle: #000000;
-  --border-focus: #000000;
+  --border-subtle: #e4e4e7; /* zinc-200 */
+  --border-focus: #18181b; /* zinc-900 */
 
-  /* Z-Space & Elevation - Hard Brutalist Shadows */
-  --light-source-vector: none;
-  --elevation-base: 3px 3px 0px 0px #000000;
-  --elevation-card: 6px 6px 0px 0px #000000;
-  --elevation-floating: 10px 10px 0px 0px #000000;
-  --elevation-pressed: 0px 0px 0px 0px #000000;
+  /* Ombre leggerissime, quasi inesistenti per un look flat/minimal */
+  --elevation-base: 0 1px 2px 0 rgb(0 0 0 / 0.02);
+  --elevation-card: 0 4px 12px -2px rgb(0 0 0 / 0.03);
+  --elevation-floating: 0 20px 25px -5px rgb(0 0 0 / 0.05);
+  --elevation-pressed: inset 0 2px 4px 0 rgb(0 0 0 / 0.02);
 
-  /* Radii - Sharp and bold */
-  --radius-widget: 0px;
-  --radius-button: 0px;
-  --radius-input: 0px;
-
-  /* Blur */
-  --blur-glass: 0px;
-}
-
-/* Performance Budget */
-@media (max-width: 768px), (prefers-reduced-motion: reduce) {
-  :root {
-    --elevation-base: 2px 2px 0px 0px #000000;
-    --elevation-card: 4px 4px 0px 0px #000000;
-    --elevation-floating: 6px 6px 0px 0px #000000;
-    --light-source-vector: none;
-    --blur-glass: 0px;
-    --surface-secondary: var(--surface-primary);
-  }
+  /* Radii - Eleganti e proporzionati */
+  --radius-widget: 16px;
+  --radius-button: 8px;
+  --radius-input: 8px;
 }
 
 @layer base {
-  /* Make icons bolder */
-  svg.lucide {
-    stroke-width: 2.5px !important;
-  }
-  
-  /* Enforce borders on interactive elements for the brutalist look */
-  input, textarea, select {
-    border: 2px solid var(--border-subtle) !important;
+  body {
+    background-color: var(--bg-dashboard-base);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
@@ -121,41 +101,27 @@
     transform: rotateY(180deg);
   }
   
-  /* Brutalist Panels */
   .glass-panel {
     background-color: var(--surface-primary);
-    border: 2px solid var(--border-subtle);
+    border: 1px solid var(--border-subtle);
   }
 
-  /* 3D Interactive Elements */
   .btn-3d {
     box-shadow: var(--elevation-base);
-    transition: all 0.15s ease-out;
-    border: 2px solid var(--border-subtle);
+    transition: all 0.3s ease;
   }
   .btn-3d:hover {
-    box-shadow: var(--elevation-floating);
-    transform: translate(-4px, -4px);
+    box-shadow: var(--elevation-card);
+    transform: translateY(-1px);
   }
   .btn-3d:active {
     box-shadow: var(--elevation-pressed);
-    transform: translate(2px, 2px);
+    transform: translateY(1px);
   }
-  
-  /* Override Tailwind borders to be thicker for the brutalist theme */
-  .border {
-    border-width: 2px !important;
-  }
-  .border-t {
-    border-top-width: 2px !important;
-  }
-  .border-b {
-    border-bottom-width: 2px !important;
-  }
-  .border-l {
-    border-left-width: 2px !important;
-  }
-  .border-r {
-    border-right-width: 2px !important;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%) skewX(-12deg);
   }
 }

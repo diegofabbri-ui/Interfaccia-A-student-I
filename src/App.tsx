@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { BookOpen, Users, History, GraduationCap } from 'lucide-react';
+import { BookOpen, Users, History, GraduationCap, TrendingUp } from 'lucide-react';
 import DevelopExamView from './components/DevelopExamView';
 import ProfessorsView from './components/ProfessorsView';
 import ExamHistoryView from './components/ExamHistoryView';
+import ProgressDashboard from './components/ProgressDashboard';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'develop' | 'professors' | 'history'>('develop');
+  const [activeTab, setActiveTab] = useState<'develop' | 'professors' | 'history' | 'progress'>('develop');
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary font-sans flex flex-col">
@@ -56,6 +57,18 @@ export default function App() {
                 <History size={18} />
                 <span className="hidden sm:inline">Cronologia Esami</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('progress')}
+                className={`px-4 py-2 rounded-button text-sm font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'progress' 
+                    ? 'bg-brand-secondary text-brand-primary shadow-elevation-pressed' 
+                    : 'text-text-secondary hover:bg-surface-interactive hover:text-text-primary'
+                }`}
+              >
+                <TrendingUp size={18} />
+                <span className="hidden sm:inline">I Tuoi Progressi</span>
+              </button>
             </nav>
           </div>
         </div>
@@ -66,6 +79,7 @@ export default function App() {
         {activeTab === 'develop' && <DevelopExamView />}
         {activeTab === 'professors' && <ProfessorsView />}
         {activeTab === 'history' && <ExamHistoryView />}
+        {activeTab === 'progress' && <ProgressDashboard />}
       </main>
     </div>
   );

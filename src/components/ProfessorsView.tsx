@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { UserPlus, Users, Trash2, Loader2, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
+import PremiumCard from './PremiumCard';
 
 type Professor = {
   id: string;
@@ -9,6 +10,8 @@ type Professor = {
   description: string;
   created_at: string;
 };
+
+import GlowWrapper from './GlowWrapper';
 
 export default function ProfessorsView() {
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -85,110 +88,118 @@ export default function ProfessorsView() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold text-text-primary">Gestione Professori</h1>
-        <p className="text-text-secondary mt-2">Aggiungi e gestisci i profili dei tuoi professori.</p>
+      <header className="mb-10">
+        <h1 className="text-4xl font-medium text-zinc-900 tracking-tight">Gestione Professori</h1>
+        <p className="text-zinc-500 mt-2 font-light text-lg">Aggiungi e gestisci i profili dei tuoi professori.</p>
       </header>
 
       {message && (
-        <div className="p-4 bg-brand-secondary text-brand-primary rounded-widget font-medium border border-border-subtle">
+        <div className="p-4 bg-zinc-100 text-zinc-900 rounded-2xl font-medium border border-zinc-200">
           {message}
         </div>
       )}
 
       <div className="grid md:grid-cols-3 gap-8">
         {/* Form Aggiunta */}
-        <motion.div 
+        <PremiumCard 
+          noTilt
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="md:col-span-1 glass-panel p-6 rounded-widget shadow-elevation-card h-fit"
+          className="md:col-span-1 bg-white p-6 sm:p-10 lg:p-14 rounded-2xl border border-zinc-200 shadow-sm h-fit"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-brand-secondary text-brand-primary rounded-button">
-              <UserPlus size={20} />
+          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 scale-[0.95] origin-left">
+            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
+              <UserPlus size={24} strokeWidth={1.5} />
             </div>
-            <h2 className="text-lg font-semibold">Nuovo Professore</h2>
+            <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">Nuovo Professore</h2>
           </div>
 
-          <form onSubmit={handleAddProfessor} className="space-y-4">
+          <form onSubmit={handleAddProfessor} className="space-y-6 scale-[0.95] origin-top" style={{ transform: "translateZ(40px)" }}>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">Nome Professore</label>
-              <input 
-                required
-                type="text" 
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-border-subtle rounded-widget focus:ring-2 focus:ring-brand-secondary focus:border-brand-primary outline-none"
-                placeholder="es. Mario Rossi"
-              />
+              <label className="block text-sm font-medium text-zinc-900 mb-2">Nome Professore</label>
+              <GlowWrapper className="rounded-xl">
+                <input 
+                  required
+                  type="text" 
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
+                  placeholder="es. Mario Rossi"
+                />
+              </GlowWrapper>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">Descrizione / Note</label>
-              <textarea 
-                required
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2 border border-border-subtle rounded-widget focus:ring-2 focus:ring-brand-secondary focus:border-brand-primary outline-none resize-none"
-                placeholder="Inserisci una descrizione, stile di insegnamento, argomenti preferiti..."
-              />
+              <label className="block text-sm font-medium text-zinc-900 mb-2">Descrizione / Note</label>
+              <GlowWrapper className="rounded-xl">
+                <textarea 
+                  required
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none resize-none transition-all bg-white"
+                  placeholder="Inserisci una descrizione, stile di insegnamento, argomenti preferiti..."
+                />
+              </GlowWrapper>
             </div>
 
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-brand-primary hover:bg-brand-hover text-white font-medium py-3 px-4 rounded-widget transition-colors disabled:opacity-50 flex justify-center items-center gap-2 btn-3d"
+              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
+              {loading ? <Loader2 className="animate-spin" size={20} strokeWidth={1.5} /> : <UserPlus size={20} strokeWidth={1.5} />}
               {loading ? 'Salvataggio...' : 'Aggiungi Professore'}
             </button>
           </form>
-        </motion.div>
+        </PremiumCard>
 
         {/* Lista Professori */}
-        <motion.div 
+        <PremiumCard 
+          noTilt
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="md:col-span-2 glass-panel p-6 rounded-widget shadow-elevation-card"
+          className="md:col-span-2 bg-white p-6 sm:p-10 lg:p-14 rounded-2xl border border-zinc-200 shadow-sm"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-status-success-bg text-status-success rounded-button">
-              <Users size={20} />
+          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 scale-[0.95] origin-left">
+            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
+              <Users size={24} strokeWidth={1.5} />
             </div>
-            <h2 className="text-lg font-semibold">Professori Salvati</h2>
+            <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">Professori Salvati</h2>
           </div>
 
-          {professors.length === 0 && !fetching ? (
-            <div className="text-center py-12 text-text-secondary bg-bg-base rounded-widget border border-dashed border-border-subtle">
-              Nessun professore inserito. Aggiungine uno usando il modulo a sinistra.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {professors.map(prof => (
-                <div key={prof.id} className="p-4 border border-border-subtle rounded-widget hover:border-brand-secondary transition-colors group relative">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <h3 className="font-bold text-lg text-text-primary">{prof.name}</h3>
-                      <div className="flex items-start gap-2 mt-2 text-text-secondary text-sm">
-                        <FileText size={16} className="mt-0.5 shrink-0 text-text-secondary" />
-                        <p className="whitespace-pre-wrap">{prof.description}</p>
+          <div style={{ transform: "translateZ(40px)" }} className="scale-[0.95] origin-top">
+            {professors.length === 0 && !fetching ? (
+              <div className="text-center py-12 text-zinc-500 bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                Nessun professore inserito. Aggiungine uno usando il modulo a sinistra.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {professors.map(prof => (
+                  <div key={prof.id} className="p-6 border border-zinc-200 rounded-2xl hover:border-zinc-400 transition-colors group relative bg-zinc-50/50">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <h3 className="font-medium text-xl text-zinc-900 tracking-tight">{prof.name}</h3>
+                        <div className="flex items-start gap-3 mt-3 text-zinc-500 text-sm font-light">
+                          <FileText size={18} className="mt-0.5 shrink-0 text-zinc-400" strokeWidth={1.5} />
+                          <p className="whitespace-pre-wrap leading-relaxed">{prof.description}</p>
+                        </div>
                       </div>
+                      <button 
+                        onClick={() => handleDelete(prof.id)}
+                        className="p-3 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100"
+                        title="Elimina"
+                      >
+                        <Trash2 size={20} strokeWidth={1.5} />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleDelete(prof.id)}
-                      className="p-2 text-text-secondary hover:text-status-danger hover:bg-status-danger-bg rounded-button transition-colors opacity-0 group-hover:opacity-100"
-                      title="Elimina"
-                    >
-                      <Trash2 size={18} />
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </PremiumCard>
       </div>
     </div>
   );

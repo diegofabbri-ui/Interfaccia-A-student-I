@@ -3,8 +3,8 @@ import { Search, SlidersHorizontal } from 'lucide-react';
 
 const SearchComponent = () => {
   return (
-    <div className="relative flex items-center justify-center">
-      <div id="poda" className="relative flex items-center justify-center group">
+    <div className="relative flex items-center justify-center w-full max-w-[314px]">
+      <div id="poda" className="relative flex items-center justify-center group w-full">
         {/* Glow layers - Modified to Black/Monochrome to match the theme */}
         <div className="absolute z-[-1] overflow-hidden h-full w-full max-h-[70px] max-w-[314px] rounded-xl blur-[3px] 
                         before:absolute before:content-[''] before:z-[-2] before:w-[999px] before:h-[999px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-60
@@ -22,8 +22,8 @@ const SearchComponent = () => {
                         before:transition-all before:duration-2000 group-hover:before:rotate-[-97deg] group-focus-within:before:rotate-[443deg] group-focus-within:before:duration-[4000ms]">
         </div>
 
-        <div id="main" className="relative group">
-          <input placeholder="Cerca..." type="text" name="text" className="bg-white border border-zinc-200 w-[301px] h-[56px] rounded-lg text-zinc-900 px-[59px] text-lg focus:outline-none placeholder-zinc-400 shadow-sm transition-shadow group-focus-within:shadow-md" />
+        <div id="main" className="relative group w-full flex justify-center">
+          <input placeholder="Cerca..." type="text" name="text" className="bg-white border border-zinc-200 w-full max-w-[301px] h-[56px] rounded-lg text-zinc-900 px-[59px] text-lg focus:outline-none placeholder-zinc-400 shadow-sm transition-shadow group-focus-within:shadow-md" />
           <div id="input-mask" className="pointer-events-none w-[100px] h-[20px] absolute bg-gradient-to-r from-transparent to-white top-[18px] left-[70px] group-focus-within:hidden"></div>
           <div id="black-mask" className="pointer-events-none w-[30px] h-[20px] absolute bg-zinc-200 top-[10px] left-[5px] blur-2xl opacity-80 transition-all duration-2000 group-hover:opacity-0"></div>
           

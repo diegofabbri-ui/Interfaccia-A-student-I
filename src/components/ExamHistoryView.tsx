@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { BookOpen, Calendar, Building2, GraduationCap, ChevronRight, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import StudyDashboard from './StudyDashboard';
+import PremiumCard from './PremiumCard';
 
 type Exam = {
   id: string;
@@ -44,9 +45,9 @@ export default function ExamHistoryView() {
       <div className="space-y-6">
         <button 
           onClick={() => setSelectedExam(null)}
-          className="flex items-center gap-2 bg-surface-primary px-4 py-2 rounded-button text-brand-primary hover:text-brand-hover font-medium transition-colors btn-3d"
+          className="flex items-center gap-2 bg-white border border-zinc-200 px-4 py-2 rounded-xl text-zinc-900 hover:bg-zinc-50 font-medium transition-colors shadow-sm"
         >
-          <ChevronRight className="rotate-180" size={20} />
+          <ChevronRight className="rotate-180" size={20} strokeWidth={1.5} />
           Torna alla Cronologia
         </button>
         <StudyDashboard exam={selectedExam} />
@@ -56,50 +57,52 @@ export default function ExamHistoryView() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold text-text-primary">Cronologia Esami</h1>
-        <p className="text-text-secondary mt-2">Seleziona un esame per visualizzare o generare il suo piano di studio.</p>
+      <header className="mb-10">
+        <h1 className="text-4xl font-medium text-zinc-900 tracking-tight">Cronologia Esami</h1>
+        <p className="text-zinc-500 mt-2 font-light text-lg">Seleziona un esame per visualizzare o generare il suo piano di studio.</p>
       </header>
 
       {exams.length === 0 && !loading ? (
-        <div className="text-center py-20 text-text-secondary bg-surface-primary rounded-widget border border-dashed border-border-subtle">
-          Nessun esame trovato. Creane uno nuovo nella sezione "Nuovo Esame".
+        <div className="text-center py-20 text-zinc-500 bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+          Nessun esame trovato. Creane uno nuovo nella sezione "Sviluppo Esami".
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {exams.map((exam, index) => (
-            <motion.div
-              key={exam.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => setSelectedExam(exam)}
-              className="glass-panel p-6 rounded-widget shadow-elevation-card hover:border-brand-primary hover:shadow-elevation-floating transition-all cursor-pointer group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-brand-secondary text-brand-primary rounded-widget group-hover:bg-brand-primary group-hover:text-white transition-colors">
-                  <BookOpen size={24} />
+            <div key={exam.id} onClick={() => setSelectedExam(exam)} className="cursor-pointer">
+              <PremiumCard
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:border-zinc-400 transition-all group"
+              >
+                <div style={{ transform: "translateZ(30px)" }} className="flex items-start justify-between mb-6">
+                  <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl group-hover:bg-zinc-900 group-hover:text-white transition-colors">
+                    <BookOpen size={24} strokeWidth={1.5} />
+                  </div>
+                  <ChevronRight className="text-zinc-400 group-hover:text-zinc-900 transition-colors" strokeWidth={1.5} />
                 </div>
-                <ChevronRight className="text-text-secondary group-hover:text-brand-primary transition-colors" />
-              </div>
-              
-              <h3 className="text-xl font-bold text-text-primary mb-2 line-clamp-2">{exam.esame_scelto}</h3>
-              
-              <div className="space-y-2 text-sm text-text-secondary">
-                <div className="flex items-center gap-2">
-                  <Building2 size={16} className="shrink-0" />
-                  <span className="truncate">{exam.universita || 'Università non specificata'}</span>
+                
+                <div style={{ transform: "translateZ(40px)" }}>
+                  <h3 className="text-xl font-medium text-zinc-900 mb-4 tracking-tight line-clamp-2">{exam.esame_scelto}</h3>
+                  
+                  <div className="space-y-3 text-sm text-zinc-500 font-light">
+                    <div className="flex items-center gap-3">
+                      <Building2 size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <span className="truncate">{exam.universita || 'Università non specificata'}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <GraduationCap size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <span className="truncate">{exam.facolta || 'Facoltà non specificata'}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Calendar size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <span>{exam.anno_universita || 'Anno non specificato'}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap size={16} className="shrink-0" />
-                  <span className="truncate">{exam.facolta || 'Facoltà non specificata'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar size={16} className="shrink-0" />
-                  <span>{exam.anno_universita || 'Anno non specificato'}</span>
-                </div>
-              </div>
-            </motion.div>
+              </PremiumCard>
+            </div>
           ))}
         </div>
       )}

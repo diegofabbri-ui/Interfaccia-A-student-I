@@ -171,7 +171,7 @@ export default function ProgressDashboard() {
   const weeklyTotal = weeklyData.reduce((acc, curr) => acc + curr.ore, 0).toFixed(1);
 
   return (
-    <div className="space-y-12 pb-12 relative overflow-hidden bg-[#fafafa]">
+    <div className="space-y-12 pb-12 px-4 relative overflow-hidden">
       {/* Animated SVG Background - Very subtle minimalist grid */}
       <div className="absolute inset-0 z-[-1] opacity-20 pointer-events-none">
         <svg className="absolute top-0 left-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -184,31 +184,26 @@ export default function ProgressDashboard() {
         </svg>
       </div>
 
-      <header className="relative z-10 mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-medium text-zinc-900 tracking-tight">I Tuoi Progressi</h1>
-          <p className="text-zinc-500 mt-2 font-light text-lg">Monitora il tuo percorso universitario.</p>
-        </div>
-        <div className="flex-shrink-0">
-          <SearchComponent />
-        </div>
+      <header className="relative z-10 mb-12 flex flex-col items-center text-center gap-4 w-full max-w-5xl mx-auto">
+        <h1 className="text-4xl font-medium text-zinc-900 tracking-tight">I Tuoi Progressi</h1>
+        <p className="text-zinc-500 font-light text-lg">Monitora il tuo percorso universitario.</p>
       </header>
 
       {/* Top Highlights - Streak & Level */}
-      <div className="grid lg:grid-cols-12 gap-6 relative z-10">
+      <div className="grid lg:grid-cols-12 gap-12 relative z-10 w-full max-w-5xl mx-auto">
         {/* Streak Card */}
         <PremiumCard 
           dark
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-5 bg-zinc-900 p-8 rounded-2xl text-white flex flex-col justify-center relative overflow-hidden shadow-sm"
+          className="lg:col-span-5 bg-zinc-900 p-6 rounded-2xl text-white flex flex-col items-center justify-center text-center relative shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6">
-            <Flame size={24} className="text-zinc-400" strokeWidth={1.5} />
-            <span className="text-zinc-400 font-medium tracking-widest uppercase text-xs">Streak Attuale</span>
+          <div className="flex items-center gap-2 mb-3">
+            <Flame size={18} className="text-zinc-400" strokeWidth={1.5} />
+            <span className="text-zinc-400 font-medium tracking-widest uppercase text-[10px]">Streak Attuale</span>
           </div>
-          <div style={{ transform: "translateZ(50px)" }} className="z-10">
-            <h2 className="text-6xl font-light leading-none tracking-tighter">{progress.streak_days} <span className="text-2xl text-zinc-500 font-light">giorni</span></h2>
+          <div className="z-10">
+            <h2 className="text-4xl font-light leading-none tracking-tighter">{progress.streak_days} <span className="text-lg text-zinc-500 font-light">giorni</span></h2>
           </div>
         </PremiumCard>
 
@@ -217,17 +212,17 @@ export default function ProgressDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="lg:col-span-7 bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center relative overflow-hidden"
+          className="lg:col-span-7 bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center relative"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 relative z-10">
-            <Trophy size={24} className="text-zinc-400" strokeWidth={1.5} />
-            <span className="text-zinc-500 font-medium tracking-widest uppercase text-xs">Livello {progress.level}</span>
+          <div className="flex items-center justify-center gap-2 mb-4 relative z-10">
+            <Trophy size={18} className="text-zinc-400" strokeWidth={1.5} />
+            <span className="text-zinc-500 font-medium tracking-widest uppercase text-[10px]">Livello {progress.level}</span>
           </div>
-          <div style={{ transform: "translateZ(40px)" }} className="flex-1 relative z-10">
-            <div className="flex justify-between items-end mb-4">
-              <h2 className="text-4xl font-light text-zinc-900 tracking-tighter">{progress.xp_current} <span className="text-xl text-zinc-400 font-light">/ 1000 XP</span></h2>
+          <div className="flex-1 relative z-10 w-full max-w-md mx-auto">
+            <div className="flex justify-between items-end mb-2">
+              <h2 className="text-2xl font-light text-zinc-900 tracking-tighter">{progress.xp_current} <span className="text-base text-zinc-400 font-light">/ 1000 XP</span></h2>
             </div>
-            <div className="w-full bg-zinc-100 h-1 rounded-full overflow-hidden relative">
+            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden relative">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${(progress.xp_current / 1000) * 100}%` }}
@@ -235,8 +230,8 @@ export default function ProgressDashboard() {
                 className="bg-zinc-900 h-full rounded-full relative" 
               />
             </div>
-            <p className="text-zinc-400 font-light mt-4 text-sm flex items-center gap-2">
-              <Star size={14} className="text-zinc-300" strokeWidth={1.5} />
+            <p className="text-zinc-400 font-light mt-3 text-xs flex items-center justify-center gap-2">
+              <Star size={12} className="text-zinc-300" strokeWidth={1.5} />
               {progress.xp_total} XP totali accumulati
             </p>
           </div>
@@ -244,7 +239,7 @@ export default function ProgressDashboard() {
       </div>
 
       {/* Stats Grid - 6 Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 relative z-10">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 relative z-10 w-full max-w-5xl mx-auto">
         {[
           { label: 'Media Voti', value: progress.average_grade.toFixed(1), icon: GraduationCap },
           { label: 'Esami Superati', value: `${progress.exams_passed}/${progress.exams_total}`, icon: CheckCircle },
@@ -258,41 +253,41 @@ export default function ProgressDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-start text-left group hover:border-zinc-400 transition-colors"
+            className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center group hover:border-zinc-400 transition-colors"
           >
-            <div style={{ transform: "translateZ(30px)" }}>
-              <stat.icon size={24} className="text-zinc-400 mb-6 group-hover:text-zinc-900 transition-colors" strokeWidth={1} />
+            <div className="mb-3">
+              <stat.icon size={18} className="text-zinc-400 group-hover:text-zinc-900 transition-colors" strokeWidth={1.5} />
             </div>
-            <div style={{ transform: "translateZ(40px)" }}>
-              <span className="text-3xl font-light text-zinc-900 mb-1 tracking-tight block">{stat.value}</span>
-              <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">{stat.label}</span>
+            <div>
+              <span className="text-xl font-light text-zinc-900 mb-1 tracking-tight block">{stat.value}</span>
+              <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">{stat.label}</span>
             </div>
           </PremiumCard>
         ))}
       </div>
 
       {/* Charts Section */}
-      <div className="grid lg:grid-cols-2 gap-6 relative z-10">
+      <div className="grid lg:grid-cols-2 gap-12 relative z-10 w-full max-w-5xl mx-auto">
         {/* Weekly Chart */}
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex justify-between items-start mb-8">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Calendar size={20} className="text-zinc-400" strokeWidth={1.5} />
-                <h3 className="text-lg font-medium text-zinc-900">Settimana Corrente</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar size={16} className="text-zinc-400" strokeWidth={1.5} />
+                <h3 className="text-sm font-medium text-zinc-900">Settimana Corrente</h3>
               </div>
-              <p className="text-sm text-zinc-500 font-light">Ore di studio per giorno</p>
+              <p className="text-xs text-zinc-500 font-light">Ore di studio per giorno</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-light text-zinc-900">{weeklyTotal}h</p>
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-widest">Totale</p>
+              <p className="text-xl font-light text-zinc-900">{weeklyTotal}h</p>
+              <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Totale</p>
             </div>
           </div>
-          <div style={{ transform: "translateZ(20px)" }} className="h-64 w-full">
+          <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
@@ -312,16 +307,16 @@ export default function ProgressDashboard() {
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-3 mb-8">
-            <ArrowUpRight size={20} className="text-zinc-400" strokeWidth={1.5} />
+          <div className="flex items-center gap-2 mb-4">
+            <ArrowUpRight size={16} className="text-zinc-400" strokeWidth={1.5} />
             <div>
-              <h3 className="text-lg font-medium text-zinc-900">Andamento</h3>
-              <p className="text-sm text-zinc-500 font-light">Trend delle ore di studio</p>
+              <h3 className="text-sm font-medium text-zinc-900">Andamento</h3>
+              <p className="text-xs text-zinc-500 font-light">Trend delle ore di studio</p>
             </div>
           </div>
-          <div style={{ transform: "translateZ(20px)" }} className="h-64 w-full">
+          <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
@@ -340,25 +335,25 @@ export default function ProgressDashboard() {
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-3 mb-8">
-            <PieChartIcon size={20} className="text-zinc-400" strokeWidth={1.5} />
+          <div className="flex items-center gap-2 mb-4">
+            <PieChartIcon size={16} className="text-zinc-400" strokeWidth={1.5} />
             <div>
-              <h3 className="text-lg font-medium text-zinc-900">Distribuzione</h3>
-              <p className="text-sm text-zinc-500 font-light">Come usi il tuo tempo</p>
+              <h3 className="text-sm font-medium text-zinc-900">Distribuzione</h3>
+              <p className="text-xs text-zinc-500 font-light">Come usi il tuo tempo</p>
             </div>
           </div>
-          <div style={{ transform: "translateZ(20px)" }} className="flex flex-col md:flex-row items-center justify-around gap-6">
-            <div className="h-48 w-48">
+          <div className="flex flex-col md:flex-row items-center justify-around gap-4">
+            <div className="h-24 w-24">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={timeDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={40}
+                    outerRadius={60}
                     paddingAngle={2}
                     dataKey="value"
                     stroke="none"
@@ -368,19 +363,19 @@ export default function ProgressDashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    contentStyle={{ border: '1px solid #e4e4e7', borderRadius: '8px', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.05)', fontSize: '14px', fontWeight: 300 }}
+                    contentStyle={{ border: '1px solid #e4e4e7', borderRadius: '8px', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.05)', fontSize: '12px', fontWeight: 300 }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="grid grid-cols-1 gap-4 w-full md:w-auto">
+            <div className="grid grid-cols-1 gap-2 w-full md:w-auto">
               {timeDistribution.map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="font-light text-zinc-700 text-sm">{item.name}</span>
+                <div key={i} className="flex items-center justify-between gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                    <span className="font-light text-zinc-700 text-xs">{item.name}</span>
                   </div>
-                  <span className="font-medium text-zinc-900">{item.value}%</span>
+                  <span className="font-medium text-zinc-900 text-xs">{item.value}%</span>
                 </div>
               ))}
             </div>
@@ -391,22 +386,22 @@ export default function ProgressDashboard() {
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex justify-between items-start mb-8">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Activity size={20} className="text-zinc-400" strokeWidth={1.5} />
-                <h3 className="text-lg font-medium text-zinc-900">Panoramica Mensile</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <Activity size={16} className="text-zinc-400" strokeWidth={1.5} />
+                <h3 className="text-sm font-medium text-zinc-900">Panoramica Mensile</h3>
               </div>
-              <p className="text-sm text-zinc-500 font-light">Ore negli ultimi 6 mesi</p>
+              <p className="text-xs text-zinc-500 font-light">Ore negli ultimi 6 mesi</p>
             </div>
-            <div className="bg-zinc-100 text-zinc-900 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2">
-              <ArrowUpRight size={14} />
+            <div className="bg-zinc-100 text-zinc-900 px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1">
+              <ArrowUpRight size={12} />
               +8%
             </div>
           </div>
-          <div style={{ transform: "translateZ(20px)" }} className="h-64 w-full">
+          <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -429,19 +424,19 @@ export default function ProgressDashboard() {
       </div>
 
       {/* Bottom Sections */}
-      <div className="grid lg:grid-cols-3 gap-6 relative z-10">
+      <div className="grid lg:grid-cols-3 gap-12 relative z-10 w-full max-w-5xl mx-auto">
         {/* Strengths */}
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6">
-            <Star size={20} className="text-zinc-400" strokeWidth={1.5} />
-            <h3 className="text-lg font-medium text-zinc-900">Punti di Forza</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <Star size={16} className="text-zinc-400" strokeWidth={1.5} />
+            <h3 className="text-sm font-medium text-zinc-900">Punti di Forza</h3>
           </div>
-          <div style={{ transform: "translateZ(40px)" }} className="p-6 rounded-xl bg-zinc-50 border border-zinc-100 text-left">
-            <p className="text-zinc-600 text-sm font-light leading-relaxed">Continua a studiare per scoprire i tuoi punti di forza.</p>
+          <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100 w-full">
+            <p className="text-zinc-600 text-xs font-light leading-relaxed">Continua a studiare per scoprire i tuoi punti di forza.</p>
           </div>
         </PremiumCard>
 
@@ -449,14 +444,14 @@ export default function ProgressDashboard() {
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6">
-            <AlertTriangle size={20} className="text-zinc-400" strokeWidth={1.5} />
-            <h3 className="text-lg font-medium text-zinc-900">Aree da Migliorare</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={16} className="text-zinc-400" strokeWidth={1.5} />
+            <h3 className="text-sm font-medium text-zinc-900">Aree da Migliorare</h3>
           </div>
-          <div style={{ transform: "translateZ(40px)" }} className="p-6 rounded-xl bg-zinc-50 border border-zinc-100 text-left">
-            <p className="text-zinc-600 text-sm font-light leading-relaxed">Nessuna area debole. Ottimo lavoro!</p>
+          <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100 w-full">
+            <p className="text-zinc-600 text-xs font-light leading-relaxed">Nessuna area debole. Ottimo lavoro!</p>
           </div>
         </PremiumCard>
 
@@ -464,14 +459,14 @@ export default function ProgressDashboard() {
         <PremiumCard 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6">
-            <History size={20} className="text-zinc-400" strokeWidth={1.5} />
-            <h3 className="text-lg font-medium text-zinc-900">Storico Esami</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <History size={16} className="text-zinc-400" strokeWidth={1.5} />
+            <h3 className="text-sm font-medium text-zinc-900">Storico Esami</h3>
           </div>
-          <div style={{ transform: "translateZ(40px)" }} className="p-6 rounded-xl bg-zinc-50 border border-zinc-100 text-left">
-            <p className="text-zinc-600 text-sm font-light leading-relaxed">Nessun esame completato di recente.</p>
+          <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100 w-full">
+            <p className="text-zinc-600 text-xs font-light leading-relaxed">Nessun esame completato di recente.</p>
           </div>
         </PremiumCard>
       </div>

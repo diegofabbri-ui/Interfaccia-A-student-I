@@ -5,9 +5,10 @@ interface PremiumCardProps extends HTMLMotionProps<"div"> {
   children: React.ReactNode;
   className?: string;
   dark?: boolean;
+  noTilt?: boolean;
 }
 
-export default function PremiumCard({ children, className = '', dark = false, ...props }: PremiumCardProps) {
+export default function PremiumCard({ children, className = '', dark = false, noTilt = false, ...props }: PremiumCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -31,24 +32,47 @@ export default function PremiumCard({ children, className = '', dark = false, ..
     mouseX.set(mX);
     mouseY.set(mY);
     
-    const xPct = mX / width - 0.5;
-    const yPct = mY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
+    if (!noTilt) {
+      const xPct = mX / width - 0.5;
+      const yPct = mY / height - 0.5;
+      x.set(xPct);
+      y.set(yPct);
+    }
   };
 
   const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
+    if (!noTilt) {
+      x.set(0);
+      y.set(0);
+    }
   };
 
   const spotlightColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.04)';
+
+  // Separate layout classes from styling classes
+  const classes = className.split(' ');
+  
+  const isLayoutClass = (c: string) => {
+    const baseClass = c.includes(':') ? c.split(':').pop() || '' : c;
+    return (
+      baseClass.startsWith('col-span') || 
+      baseClass.startsWith('row-span') || 
+      baseClass.startsWith('m-') || baseClass.startsWith('mt-') || baseClass.startsWith('mb-') || baseClass.startsWith('ml-') || baseClass.startsWith('mr-') || baseClass.startsWith('mx-') || baseClass.startsWith('my-') ||
+      ['relative', 'absolute', 'fixed', 'sticky'].includes(baseClass) ||
+      baseClass.startsWith('w-') || baseClass.startsWith('h-') || baseClass.startsWith('max-w-') || baseClass.startsWith('max-h-') ||
+      baseClass.startsWith('min-w-') || baseClass.startsWith('min-h-') ||
+      baseClass.startsWith('z-')
+    );
+  };
+
+  const layoutClasses = classes.filter(isLayoutClass).join(' ');
+  const innerClasses = classes.filter(c => !isLayoutClass(c)).join(' ');
 
   return (
     <motion.div
       style={{ perspective: 1000, ...props.style }}
       {...props}
-      className={`h-full w-full ${props.className || ''}`}
+      className={`${layoutClasses} h-full w-full`}
     >
       <motion.div
         ref={ref}
@@ -59,13 +83,13 @@ export default function PremiumCard({ children, className = '', dark = false, ..
           rotateY,
           transformStyle: "preserve-3d",
         }}
-        className={`group relative h-full w-full rounded-2xl transition-all duration-300 ease-out ${className}`}
+        className={`group relative h-full w-full rounded-2xl transition-all duration-300 ease-out ${innerClasses}`}
       >
         {/* Animated Black Glow Border using Mask */}
         <div 
-          className="absolute -inset-[3px] z-[-1] rounded-[inherit] opacity-40 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+          className="absolute -inset-[4px] z-[-1] rounded-[inherit] opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
           style={{ 
-            padding: '3px', 
+            padding: '4px', 
             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', 
             WebkitMaskComposite: 'xor', 
             maskComposite: 'exclude' 
@@ -73,9 +97,9 @@ export default function PremiumCard({ children, className = '', dark = false, ..
         >
           <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
             {/* Layer 1 */}
-            <div className="absolute top-1/2 left-1/2 aspect-square w-[200%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(transparent_0%,black_25%,transparent_50%,black_75%,transparent_100%)] animate-[spin_4s_linear_infinite] blur-[2px]" />
+            <div className="absolute top-1/2 left-1/2 aspect-square w-[200%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(transparent_0%,black_25%,transparent_50%,black_75%,transparent_100%)] animate-[spin_4s_linear_infinite] blur-[3px]" />
             {/* Layer 2 */}
-            <div className="absolute top-1/2 left-1/2 aspect-square w-[200%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(transparent_0%,rgba(0,0,0,0.5)_15%,transparent_30%,rgba(0,0,0,0.5)_65%,transparent_80%)] animate-[spin_3s_linear_infinite_reverse] blur-[1px]" />
+            <div className="absolute top-1/2 left-1/2 aspect-square w-[200%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(transparent_0%,rgba(0,0,0,0.6)_15%,transparent_30%,rgba(0,0,0,0.6)_65%,transparent_80%)] animate-[spin_3s_linear_infinite_reverse] blur-[2px]" />
           </div>
         </div>
 

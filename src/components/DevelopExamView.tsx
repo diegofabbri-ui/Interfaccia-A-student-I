@@ -24,6 +24,7 @@ export default function DevelopExamView() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [successNotification, setSuccessNotification] = useState(false);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
   // Form 1 State
   const [esameScelto, setEsameScelto] = useState('');
@@ -127,6 +128,7 @@ export default function DevelopExamView() {
       fetchExams();
       if (data && data.length > 0) {
         setSelectedExamId(data[0].id);
+        setCurrentStep(2);
       }
     }
     setLoading(false);
@@ -171,6 +173,7 @@ export default function DevelopExamView() {
       setSuccessNotification(true);
       setTimeout(() => setSuccessNotification(false), 5000);
       setFileNames(['']);
+      setCurrentStep(1);
     }
     setLoading(false);
   };
@@ -234,46 +237,39 @@ export default function DevelopExamView() {
   };
 
   const loadMockData = () => {
-    const newExams = [...exams];
-    let added = false;
-    mockExams.forEach(mock => {
-      if (!newExams.find(e => e.id === mock.id)) {
-        newExams.push(mock as Exam);
-        added = true;
-      }
-    });
+    const newMockExams = mockExams.filter(mock => !exams.find(e => e.id === mock.id));
     
-    if (added) {
-      setExams(newExams);
-      setMessage('Dati di test (Mock) caricati con successo! Seleziona un esame di test dal menu a tendina.');
+    if (newMockExams.length > 0) {
+      setExams([...exams, ...newMockExams as Exam[]]);
+      setMessage(`Caricati ${newMockExams.length} nuovi esami di test! Seleziona un esame dal menu a tendina.`);
     } else {
-      setMessage('I dati di test sono già stati caricati.');
+      setMessage('Tutti i dati di test sono già presenti.');
     }
   };
 
   return (
-    <div className="space-y-8">
-      <header className="mb-10">
-        <h1 className="text-4xl font-medium text-zinc-900 tracking-tight">Sviluppo Esami</h1>
-        <p className="text-zinc-500 mt-2 font-light text-lg">Configura la ricerca web per l'esame e collega i file del professore o il materiale didattico.</p>
+    <div className="max-w-6xl mx-auto py-16 px-8">
+      <header className="mb-16">
+        <h1 className="text-5xl font-medium text-zinc-950 tracking-tighter">Sviluppo Esami</h1>
+        <p className="text-zinc-400 mt-4 font-light text-xl max-w-2xl">Configura la ricerca web e gestisci il materiale didattico in un unico hub accademico.</p>
       </header>
 
       {successNotification && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-zinc-900 text-white rounded-2xl flex items-center gap-3 font-medium shadow-sm"
+          className="p-4 bg-zinc-50 text-zinc-950 rounded-2xl flex items-center gap-3 font-medium shadow-sm"
         >
-          <CheckCircle2 size={24} className="text-zinc-400" strokeWidth={1.5} />
+          <CheckCircle2 size={24} className="text-zinc-900" strokeWidth={1.5} />
           <div>
             <p className="font-medium tracking-tight">Esame sviluppato con successo!</p>
-            <p className="text-sm text-zinc-400 font-light">Il materiale è stato collegato. Puoi trovare l'esame nella sezione "Cronologia Esami".</p>
+            <p className="text-sm text-zinc-600 font-light">Il materiale è stato collegato. Puoi trovare l'esame nella sezione "Cronologia Esami".</p>
           </div>
         </motion.div>
       )}
 
       {message && !successNotification && (
-        <div className="p-4 bg-zinc-100 text-zinc-900 rounded-2xl font-medium border border-zinc-200">
+        <div className="p-4 bg-zinc-800 text-zinc-50 rounded-2xl font-medium border border-zinc-700">
           {message}
         </div>
       )}
@@ -284,188 +280,185 @@ export default function DevelopExamView() {
           noTilt
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 sm:p-10 lg:p-14 rounded-2xl border border-zinc-200 shadow-sm"
+          className="bg-white p-10 rounded-3xl border border-zinc-200 shadow-sm"
         >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 scale-[0.95] origin-left">
-            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
-              <BookOpen size={24} strokeWidth={1.5} />
+          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-8 scale-[0.98] origin-left">
+            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-2xl shadow-inner border border-zinc-200">
+              <BookOpen size={24} strokeWidth={1.5} className="drop-shadow-sm" />
             </div>
             <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">1. Ricerca Web Esame</h2>
           </div>
 
-          <form onSubmit={handleCreateExam} className="space-y-6 scale-[0.95] origin-top" style={{ transform: "translateZ(40px)" }}>
+          <form onSubmit={handleCreateExam} className="space-y-8 scale-[0.98] origin-top" style={{ transform: "translateZ(40px)" }}>
             <div>
-              <label className="block text-sm font-medium text-zinc-900 mb-2">Esame Scelto</label>
-              <GlowWrapper className="rounded-xl">
-                <div className="relative">
-                  <BookOpen className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
-                  <input 
-                    required
-                    type="text" 
-                    value={esameScelto}
-                    onChange={e => setEsameScelto(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                    placeholder="es. Analisi Matematica 1"
-                  />
-                </div>
-              </GlowWrapper>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">Esame Scelto</label>
+              <div className="relative">
+                <BookOpen className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                <input 
+                  required
+                  type="text" 
+                  value={esameScelto}
+                  onChange={e => setEsameScelto(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white text-zinc-900"
+                  placeholder="es. Analisi Matematica 1"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-900 mb-2">Facoltà</label>
-                <GlowWrapper className="rounded-xl">
-                  <div className="relative">
-                    <GraduationCap className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
-                    <input 
-                      type="text" 
-                      value={facolta}
-                      onChange={e => setFacolta(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                      placeholder="es. Ingegneria"
-                    />
-                  </div>
-                </GlowWrapper>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Facoltà</label>
+                <div className="relative">
+                  <GraduationCap className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                  <input 
+                    type="text" 
+                    value={facolta}
+                    onChange={e => setFacolta(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white text-zinc-900"
+                    placeholder="es. Ingegneria"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-900 mb-2">Anno</label>
-                <GlowWrapper className="rounded-xl">
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
-                    <input 
-                      type="text" 
-                      value={annoUniversita}
-                      onChange={e => setAnnoUniversita(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                      placeholder="es. 1° Anno"
-                    />
-                  </div>
-                </GlowWrapper>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Anno</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                  <input 
+                    type="text" 
+                    value={annoUniversita}
+                    onChange={e => setAnnoUniversita(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white text-zinc-900"
+                    placeholder="es. 1° Anno"
+                  />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-900 mb-2">Università</label>
-              <GlowWrapper className="rounded-xl">
-                <div className="relative">
-                  <Building2 className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
-                  <input 
-                    type="text" 
-                    value={universita}
-                    onChange={e => setUniversita(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                    placeholder="es. Politecnico di Milano"
-                  />
-                </div>
-              </GlowWrapper>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">Università</label>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                <input 
+                  type="text" 
+                  value={universita}
+                  onChange={e => setUniversita(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white text-zinc-900"
+                  placeholder="es. Politecnico di Milano"
+                />
+              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-zinc-900">Libri di Supporto (Multi-livello)</label>
-                <button type="button" onClick={addLibro} className="text-zinc-900 hover:text-zinc-600 text-sm font-medium flex items-center gap-1 transition-colors">
-                  <Plus size={16} strokeWidth={1.5} /> Aggiungi Libro
-                </button>
+                <label className="block text-sm font-medium text-zinc-300">Libri di Supporto (Multi-livello)</label>
+                <GlowWrapper opacity={0.6}>
+                  <button type="button" onClick={addLibro} className="bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-50 hover:shadow-[0_0_10px_rgba(0,0,0,0.1)] text-sm font-medium flex items-center gap-1 transition-all px-3 py-1.5 rounded-lg">
+                    <Plus size={16} strokeWidth={1.5} /> Aggiungi Libro
+                  </button>
+                </GlowWrapper>
               </div>
               <div className="space-y-4">
                 {libriSupporto.map((libro, bIndex) => (
-                  <GlowWrapper key={bIndex} className="rounded-xl" opacity={0.2}>
-                    <div className="p-5 border border-zinc-200 rounded-xl bg-white space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <BookOpen className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
-                          <input 
-                            type="text" 
-                            value={libro.nome}
-                            onChange={e => updateLibroNome(bIndex, e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-zinc-50/30 transition-all"
-                            placeholder="Nome del Libro (es. Analisi 1)"
-                          />
-                        </div>
-                        {libriSupporto.length > 1 && (
-                          <button type="button" onClick={() => removeLibro(bIndex)} className="p-3 text-zinc-400 hover:text-red-500 transition-colors bg-white border border-zinc-200 rounded-xl">
-                            <X size={20} strokeWidth={1.5} />
-                          </button>
-                        )}
-                      </div>
-                      
-                      {/* Suddivisioni */}
-                      <div className="pl-6 space-y-3 border-l-2 border-zinc-200 ml-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Suddivisione (Capitoli/Sezioni)</label>
-                          <button type="button" onClick={() => addSuddivisione(bIndex)} className="text-zinc-900 hover:text-zinc-600 text-xs font-medium flex items-center gap-1 transition-colors">
-                            <Plus size={14} strokeWidth={1.5} /> Aggiungi
-                          </button>
-                        </div>
-                        {libro.suddivisioni.map((sud, sIndex) => (
-                          <div key={sIndex} className="flex items-center gap-2">
-                            <div className="relative flex-1">
-                              <FileText className="absolute left-3 top-2.5 text-zinc-400" size={16} strokeWidth={1.5} />
-                              <input 
-                                type="text" 
-                                value={sud}
-                                onChange={e => updateSuddivisione(bIndex, sIndex, e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white transition-all"
-                                placeholder="es. Capitolo 1"
-                              />
-                            </div>
-                            {libro.suddivisioni.length > 1 && (
-                              <button type="button" onClick={() => removeSuddivisione(bIndex, sIndex)} className="p-2 text-zinc-400 hover:text-red-500 transition-colors">
-                                <X size={18} strokeWidth={1.5} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </GlowWrapper>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-zinc-900">Link di Supporto</label>
-                <button type="button" onClick={addLink} className="text-zinc-900 hover:text-zinc-600 text-sm font-medium flex items-center gap-1 transition-colors">
-                  <Plus size={16} strokeWidth={1.5} /> Aggiungi
-                </button>
-              </div>
-              <div className="space-y-3">
-                {linkSupporto.map((link, index) => (
-                  <GlowWrapper key={index} className="rounded-xl" opacity={0.2}>
+                  <div key={bIndex} className="p-5 border border-zinc-200 rounded-xl bg-zinc-50 space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
-                        <LinkIcon className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                        <BookOpen className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
                         <input 
-                          type="url" 
-                          value={link}
-                          onChange={e => updateLink(index, e.target.value)}
-                          className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                          placeholder="https://..."
+                          type="text" 
+                          value={libro.nome}
+                          onChange={e => updateLibroNome(bIndex, e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white text-zinc-900 transition-all"
+                          placeholder="Nome del Libro (es. Analisi 1)"
                         />
                       </div>
-                      {linkSupporto.length > 1 && (
-                        <button type="button" onClick={() => removeLink(index)} className="p-3 text-zinc-400 hover:text-red-500 transition-colors bg-white border border-zinc-200 rounded-xl">
+                      {libriSupporto.length > 1 && (
+                        <button type="button" onClick={() => removeLibro(bIndex)} className="p-3 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all bg-white border border-zinc-200 rounded-xl hover:shadow-[0_0_10px_rgba(220,38,38,0.2)]">
                           <X size={20} strokeWidth={1.5} />
                         </button>
                       )}
                     </div>
-                  </GlowWrapper>
+                    
+                    {/* Suddivisioni */}
+                    <div className="pl-6 space-y-3 border-l-2 border-zinc-200 ml-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Suddivisione (Capitoli/Sezioni)</label>
+                        <GlowWrapper opacity={0.6} glowColor="black">
+                          <button type="button" onClick={() => addSuddivisione(bIndex)} className="bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-50 hover:shadow-[0_0_10px_rgba(0,0,0,0.1)] text-xs font-medium flex items-center gap-1 transition-all px-2 py-1 rounded-lg">
+                            <Plus size={14} strokeWidth={1.5} /> Aggiungi
+                          </button>
+                        </GlowWrapper>
+                      </div>
+                      {libro.suddivisioni.map((sud, sIndex) => (
+                        <div key={sIndex} className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <FileText className="absolute left-3 top-2.5 text-zinc-400" size={16} strokeWidth={1.5} />
+                            <input 
+                              type="text" 
+                              value={sud}
+                              onChange={e => updateSuddivisione(bIndex, sIndex, e.target.value)}
+                              className="w-full pl-10 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white text-zinc-900 transition-all"
+                              placeholder="es. Capitolo 1"
+                            />
+                          </div>
+                          {libro.suddivisioni.length > 1 && (
+                            <button type="button" onClick={() => removeSuddivisione(bIndex, sIndex)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all hover:shadow-[0_0_10px_rgba(220,38,38,0.2)] rounded-lg">
+                              <X size={18} strokeWidth={1.5} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full mt-6 bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Salvataggio...' : 'Crea Esame'}
-            </button>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-zinc-300">Link di Supporto</label>
+                <GlowWrapper opacity={0.6} glowColor="white">
+                  <button type="button" onClick={addLink} className="bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-50 hover:shadow-[0_0_10px_rgba(0,0,0,0.1)] text-sm font-medium flex items-center gap-1 transition-all px-3 py-1.5 rounded-lg">
+                    <Plus size={16} strokeWidth={1.5} /> Aggiungi
+                  </button>
+                </GlowWrapper>
+              </div>
+              <div className="space-y-3">
+                {linkSupporto.map((link, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <LinkIcon className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
+                      <input 
+                        type="url" 
+                        value={link}
+                        onChange={e => updateLink(index, e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white text-zinc-900"
+                        placeholder="https://..."
+                      />
+                    </div>
+                    {linkSupporto.length > 1 && (
+                      <button type="button" onClick={() => removeLink(index)} className="p-3 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all bg-white border border-zinc-200 rounded-xl hover:shadow-[0_0_10px_rgba(220,38,38,0.2)]">
+                        <X size={20} strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <GlowWrapper opacity={0.6} glowColor="black" className="w-full" alwaysOn>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-all hover:shadow-lg hover:shadow-zinc-500/20 disabled:opacity-50"
+              >
+                {loading ? 'Salvataggio...' : 'Crea Esame'}
+              </button>
+            </GlowWrapper>
           </form>
         </PremiumCard>
 
         {/* Section 2: File Upload (Metadata) */}
+        <GlowWrapper opacity={0.2} glowColor="black" className="rounded-2xl" alwaysOn>
         <PremiumCard 
           noTilt
           initial={{ opacity: 0, y: 20 }}
@@ -475,8 +468,8 @@ export default function DevelopExamView() {
         >
           <div style={{ transform: "translateZ(30px)" }} className="flex items-center justify-between mb-6 scale-[0.95] origin-left">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
-                <FilePlus size={24} strokeWidth={1.5} />
+              <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl shadow-inner border border-zinc-200">
+                <FilePlus size={24} strokeWidth={1.5} className="drop-shadow-sm" />
               </div>
               <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">2. Assorbimento File Prof</h2>
             </div>
@@ -493,21 +486,19 @@ export default function DevelopExamView() {
           <form onSubmit={handleLinkFiles} className="space-y-6 flex-1 flex flex-col scale-[0.95] origin-top" style={{ transform: "translateZ(40px)" }}>
             <div>
               <label className="block text-sm font-medium text-zinc-900 mb-2">Seleziona Esame</label>
-              <GlowWrapper className="rounded-xl">
-                <select 
-                  required
-                  value={selectedExamId}
-                  onChange={e => setSelectedExamId(e.target.value)}
-                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white appearance-none"
-                >
-                  <option value="">-- Scegli un esame --</option>
-                  {exams.map(exam => (
-                    <option key={exam.id} value={exam.id}>
-                      {exam.esame_scelto} ({exam.universita})
-                    </option>
-                  ))}
-                </select>
-              </GlowWrapper>
+              <select 
+                required
+                value={selectedExamId}
+                onChange={e => setSelectedExamId(e.target.value)}
+                className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white appearance-none text-zinc-900"
+              >
+                <option value="">-- Scegli un esame --</option>
+                {exams.map(exam => (
+                  <option key={exam.id} value={exam.id}>
+                    {exam.esame_scelto} ({exam.universita})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -516,7 +507,7 @@ export default function DevelopExamView() {
                 <button
                   type="button"
                   onClick={() => setMaterialType('professor_description')}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+                  className={`w-full py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
                     materialType === 'professor_description' 
                       ? 'bg-zinc-900 border-zinc-900 text-white shadow-md' 
                       : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
@@ -527,7 +518,7 @@ export default function DevelopExamView() {
                 <button
                   type="button"
                   onClick={() => setMaterialType('professor_material')}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+                  className={`w-full py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
                     materialType === 'professor_material' 
                       ? 'bg-zinc-900 border-zinc-900 text-white shadow-md' 
                       : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
@@ -540,46 +531,48 @@ export default function DevelopExamView() {
 
             <div>
               <label className="block text-sm font-medium text-zinc-900 mb-2">ID Sezione Frontend</label>
-              <GlowWrapper className="rounded-xl">
-                <input 
-                  type="text" 
-                  value={frontendSectionId}
-                  onChange={e => setFrontendSectionId(e.target.value)}
-                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white transition-all"
-                  placeholder="es. section_prof_materials"
-                />
-              </GlowWrapper>
+              <input 
+                type="text" 
+                value={frontendSectionId}
+                onChange={e => setFrontendSectionId(e.target.value)}
+                className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white transition-all text-zinc-900"
+                placeholder="es. section_prof_materials"
+              />
               <p className="text-xs text-zinc-500 mt-2">Identificativo della sezione da cui provengono i file.</p>
             </div>
 
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-zinc-900">Nomi dei File da Collegare</label>
-                <button type="button" onClick={addFileName} className="text-zinc-900 hover:text-zinc-600 text-sm font-medium flex items-center gap-1 transition-colors">
-                  <Plus size={16} strokeWidth={1.5} /> Aggiungi
-                </button>
+                <GlowWrapper opacity={0.8} glowColor="black" className="rounded-lg" alwaysOn>
+                  <button type="button" onClick={addFileName} className="bg-zinc-900 text-white hover:bg-zinc-700 hover:shadow-[0_0_15px_rgba(0,0,0,0.3)] text-sm font-medium flex items-center gap-1 transition-all px-4 py-2 rounded-lg shadow-sm">
+                    <Plus size={16} strokeWidth={1.5} /> Aggiungi File
+                  </button>
+                </GlowWrapper>
               </div>
               <div className="space-y-3">
                 {fileNames.map((filename, index) => (
-                  <GlowWrapper key={index} className="rounded-xl" opacity={0.2}>
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex-1">
+                  <div key={index} className="flex items-center gap-3 group hover:translate-x-1 transition-all duration-200 p-2 -mx-2 rounded-xl hover:bg-zinc-50">
+                    <GlowWrapper opacity={0.4} className="flex-1 rounded-xl">
+                      <div className="relative group-hover:border-zinc-400 group-hover:shadow-sm transition-all border border-zinc-200 rounded-xl bg-white">
                         <FileText className="absolute left-4 top-3.5 text-zinc-400" size={18} strokeWidth={1.5} />
                         <input 
                           type="text" 
                           value={filename}
                           onChange={e => updateFileName(index, e.target.value)}
-                          className="w-full pl-12 pr-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white transition-all"
+                          className="w-full pl-12 pr-4 py-3 border-none rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-transparent transition-all text-zinc-900"
                           placeholder="es. appunti_lezione.pdf"
                         />
                       </div>
-                      {fileNames.length > 1 && (
-                        <button type="button" onClick={() => removeFileName(index)} className="p-3 text-zinc-400 hover:text-red-500 transition-colors bg-white border border-zinc-200 rounded-xl">
+                    </GlowWrapper>
+                    {fileNames.length > 1 && (
+                      <GlowWrapper opacity={0.5} glowColor="red" className="rounded-xl">
+                        <button type="button" onClick={() => removeFileName(index)} className="p-3 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all bg-white border border-zinc-200 rounded-xl shadow-sm hover:shadow-[0_0_10px_rgba(220,38,38,0.2)]">
                           <X size={20} strokeWidth={1.5} />
                         </button>
-                      )}
-                    </div>
-                  </GlowWrapper>
+                      </GlowWrapper>
+                    )}
+                  </div>
                 ))}
               </div>
               <p className="text-xs text-zinc-500 mt-3">
@@ -587,17 +580,20 @@ export default function DevelopExamView() {
               </p>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading || !selectedExamId || fileNames.filter(f => f.trim() !== '').length === 0}
-              className="w-full mt-auto bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
-            >
-              {loading && <Loader2 className="animate-spin" size={20} strokeWidth={1.5} />}
-              {loading ? 'Collegamento in corso...' : "Collega File all'Esame"}
-            </button>
+            <GlowWrapper opacity={0.8} glowColor="black" className="w-full" alwaysOn>
+              <button 
+                type="submit" 
+                disabled={loading || !selectedExamId || fileNames.filter(f => f.trim() !== '').length === 0}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-all hover:shadow-lg hover:shadow-zinc-500/20 disabled:opacity-50 flex justify-center items-center gap-2"
+              >
+                {loading && <Loader2 className="animate-spin" size={20} strokeWidth={1.5} />}
+                {loading ? 'Collegamento in corso...' : "Collega File all'Esame"}
+              </button>
+            </GlowWrapper>
           </form>
         </PremiumCard>
-      </div>
+        </GlowWrapper>
+    </div>
     </div>
   );
 }

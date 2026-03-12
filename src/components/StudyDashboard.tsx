@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, ChevronRight, MessageSquare, FileText, Link as LinkIcon, Book, Mic, Video, BrainCircuit, Send, Calendar, Clock, Target, Loader2, AlertCircle, Database, X, Square } from 'lucide-react';
+import { Play, ChevronRight, MessageSquare, FileText, Link as LinkIcon, Book, Mic, BrainCircuit, Send, Calendar, Clock, Target, Loader2, AlertCircle, Database, X, Square, Volume2, Pause, Video, RefreshCw } from 'lucide-react';
+import GlowWrapper from './GlowWrapper';
 import { supabase } from '../supabase';
 import { GoogleGenAI, Type } from '@google/genai';
+import ProgressDashboard from './ProgressDashboard';
 
 // Initialize Gemini with the provided API key
-const ai = new GoogleGenAI({ apiKey: 'AIzaSyBV--5uug0XI9jmJ3i5RiYgpPQWAgUtby8' });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 type StudyPlan = {
   macroInventory: { name: string; type: string; details: string }[];
@@ -15,7 +17,6 @@ type StudyPlan = {
   }[];
   dailyTasks: { phase: string; material: string; deadline: string; status: string }[];
   dailyDeliverables: {
-    videos: { title: string; script: string }[];
     flashcards: { front: string; back: string }[];
     quizzes: { question: string; options: string[]; correctAnswer: string }[];
     audios: { title: string; dialogue: string }[];
@@ -28,11 +29,17 @@ export default function StudyDashboard({ exam }: { exam: any }) {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null);
   const [expandedBlock, setExpandedBlock] = useState<string | null>(null);
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
   const [fetchedNotes, setFetchedNotes] = useState<string[]>([]);
   const [systemError, setSystemError] = useState<string | null>(null);
-  const [activeDeliverable, setActiveDeliverable] = useState<{ type: 'video' | 'flashcard' | 'quiz' | 'audio', data: any, title: string } | null>(null);
+  const [activeDeliverable, setActiveDeliverable] = useState<{ type: 'flashcard' | 'quiz' | 'audio', data: any, title: string } | null>(null);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [generatingVisuals, setGeneratingVisuals] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [podcastImages, setPodcastImages] = useState<string[]>([]);
+  const [sceneTimings, setSceneTimings] = useState<number[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -75,6 +82,166 @@ export default function StudyDashboard({ exam }: { exam: any }) {
 
   const links = exam?.link_supporto || [];
   const notes = fetchedNotes.length > 0 ? fetchedNotes : ['Nessun appunto collegato'];
+
+  const getApiKey = () => {
+    return process.env.GEMINI_API_KEY!;
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (isPlaying && audioRef.current && podcastImages.length > 0 && sceneTimings.length > 0) {
+      interval = setInterval(() => {
+        if (audioRef.current) {
+          const currentTime = audioRef.current.currentTime;
+          // Find the current scene based on timings
+          let nextIndex = 0;
+          for (let i = 0; i < sceneTimings.length; i++) {
+            if (currentTime >= sceneTimings[i]) {
+              nextIndex = i;
+            } else {
+              break;
+            }
+          }
+          setCurrentImageIndex(nextIndex);
+        }
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, podcastImages, sceneTimings]);
+
+  const handleGenerateAudio = async (dialogue: string) => {
+    setGeneratingAudio(true);
+    setGeneratingVisuals(true);
+    setAudioUrl(null);
+    setPodcastImages([]);
+    setSceneTimings([]);
+    setCurrentImageIndex(0);
+
+    // Parse scenes from dialogue
+    // Dialogue format: [SCENE 1] text [SCENE 2] text ...
+    const sceneRegex = /\[SCENE \d+\]/g;
+    const sceneMarkers = dialogue.match(sceneRegex) || [];
+    const sceneTexts = dialogue.split(sceneRegex).filter(t => t.trim().length > 0);
+    
+    // Clean dialogue for TTS (remove markers)
+    const cleanDialogue = dialogue.replace(sceneRegex, "").trim();
+    
+    // Calculate timings based on character position
+    // We estimate speaking rate: ~15 characters per second
+    const CHARS_PER_SEC = 15;
+    let currentPos = 0;
+    const timings: number[] = [];
+    
+    // The split dialogue might have text before the first marker if not starting with [SCENE 1]
+    // But we'll assume the model follows instructions.
+    const fullText = dialogue;
+    let accumulatedTime = 0;
+    
+    sceneMarkers.forEach((marker, idx) => {
+      const markerPos = fullText.indexOf(marker, currentPos);
+      const textBeforeMarker = fullText.substring(currentPos, markerPos);
+      accumulatedTime += textBeforeMarker.length / CHARS_PER_SEC;
+      timings.push(accumulatedTime);
+      currentPos = markerPos + marker.length;
+    });
+
+    // Start Image Generation in parallel
+    const generateImagesPromise = (async () => {
+      try {
+        const imageAi = new GoogleGenAI({ apiKey: getApiKey() });
+        const images: string[] = [];
+        
+        // Use the text of each scene to generate a relevant image
+        for (let i = 0; i < Math.min(sceneTexts.length, 6); i++) {
+          const sceneText = sceneTexts[i].substring(0, 300); // Limit prompt length
+          const prompt = `A cinematic, high-quality educational illustration representing this concept: "${sceneText}". Style: Modern, clean, professional, 4k, elegant lighting.`;
+          
+          const response = await imageAi.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: [{ text: prompt }],
+            config: {
+              imageConfig: { aspectRatio: "16:9" }
+            }
+          });
+          
+          for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+              images.push(`data:image/png;base64,${part.inlineData.data}`);
+              break;
+            }
+          }
+        }
+        return images;
+      } catch (err) {
+        console.error("Errore generazione immagini:", err);
+        return [];
+      }
+    })();
+
+    try {
+      const ttsAi = new GoogleGenAI({ apiKey: getApiKey() });
+      const ttsPrompt = `Genera un podcast audio basato su questo dialogo tra Joe e Jane. Joe ha una voce profonda e Jane una voce chiara. Mantieni il ritmo naturale:
+      ${cleanDialogue}`;
+
+      const response = await ttsAi.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: ttsPrompt }] }],
+        config: {
+          // @ts-ignore
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: [
+                {
+                  speaker: 'Joe',
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Kore' }
+                  }
+                },
+                {
+                  speaker: 'Jane',
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Puck' }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const audioBlob = await fetch(`data:audio/mp3;base64,${base64Audio}`).then(res => res.blob());
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+      }
+      
+      // Wait for images to finish
+      const generatedImages = await generateImagesPromise;
+      if (generatedImages.length > 0) {
+        setPodcastImages(generatedImages);
+        setSceneTimings(timings);
+      }
+    } catch (err) {
+      console.error("Errore generazione audio:", err);
+      alert("Errore durante la generazione dell'audio NotebookLM.");
+    } finally {
+      setGeneratingAudio(false);
+      setGeneratingVisuals(false);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
 
   const handleStart = async () => {
     // 1. Verifica rigorosa dei limiti di sistema
@@ -132,10 +299,9 @@ export default function StudyDashboard({ exam }: { exam: any }) {
         - Isola il carico di studio per il giorno corrente (Giorno 1).
         - Genera i task operativi solo per oggi (dailyTasks).
         - Genera obbligatoriamente i CONTENUTI REALI per i deliverables per oggi: 
-          - 1 Video: Genera il titolo e uno script dettagliato per un video riassuntivo (con indicazioni visive e testo narrato).
           - 1 Set di Flashcard: Genera un set di 3 flashcard (fronte/retro) sui concetti chiave.
           - 1 Quiz di verifica: Genera un quiz a risposta multipla di 3 domande (con 4 opzioni e la risposta corretta).
-          - 1 Traccia Audio: Genera 1 script per podcast a due voci (stile NotebookLM Audio Overview) dove due host discutono i concetti di oggi in modo colloquiale e approfondito.
+          - 1 Traccia Audio: Genera 1 script per podcast a due voci (stile NotebookLM Audio Overview) dove due host discutono i concetti di oggi in modo colloquiale e approfondito. Dividi lo script in esattamente 6 scene inserendo i marcatori [SCENE 1], [SCENE 2], ..., [SCENE 6] all'inizio di ogni cambio di argomento nel dialogo.
         - Definisci il contesto di memoria per il Copilot (solo materiale di oggi).
 
         Vincoli:
@@ -245,7 +411,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                       type: Type.OBJECT,
                       properties: {
                         title: { type: Type.STRING },
-                        dialogue: { type: Type.STRING, description: "Script di un podcast a due voci (Host 1 e Host 2) che discutono l'argomento, in stile NotebookLM Audio Overview" }
+                        dialogue: { type: Type.STRING, description: "Script di un podcast a due voci (Host 1 e Host 2) con marcatori [SCENE 1]...[SCENE 6] inseriti nel testo per sincronizzare le immagini." }
                       },
                       required: ["title", "dialogue"]
                     }, 
@@ -301,22 +467,42 @@ export default function StudyDashboard({ exam }: { exam: any }) {
     }
   };
 
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
+  const chatRef = useRef<any>(null);
+
+  const initChat = (context: string) => {
+    chatRef.current = ai.chats.create({
+      model: 'gemini-3.1-pro-preview',
+      config: {
+        systemInstruction: `Sei il Copilot Giornaliero. Hai un blocco di memoria rigoroso: puoi rispondere SOLO basandoti su questo contesto del materiale di oggi: "${context}". Se l'utente chiede qualcosa fuori da questo perimetro, rifiuta gentilmente dicendo che non fa parte del materiale di oggi.`,
+      },
+    });
+  };
+
+  const refreshCopilot = () => {
+    setChatMessages([]);
+    if (studyPlan) {
+      initChat(studyPlan.copilotContext);
+    }
+  };
+
+  useEffect(() => {
+    if (studyPlan && !chatRef.current) {
+      initChat(studyPlan.copilotContext);
+    }
+  }, [studyPlan]);
+
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || !studyPlan) return;
+    if (!chatInput.trim() || !chatRef.current) return;
 
-    setChatMessages([...chatMessages, { role: 'user', content: chatInput }]);
-    const currentInput = chatInput;
+    const userMessage = chatInput;
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setChatInput('');
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: currentInput,
-        config: {
-          systemInstruction: `Sei il Copilot Giornaliero. Hai un blocco di memoria rigoroso: puoi rispondere SOLO basandoti su questo contesto del materiale di oggi: "${studyPlan.copilotContext}". Se l'utente chiede qualcosa fuori da questo perimetro, rifiuta gentilmente dicendo che non fa parte del materiale di oggi.`,
-        }
-      });
+      const response = await chatRef.current.sendMessage({ message: userMessage });
       
       if (response.text) {
         setChatMessages(prev => [...prev, { role: 'assistant', content: response.text || '' }]);
@@ -326,8 +512,21 @@ export default function StudyDashboard({ exam }: { exam: any }) {
     }
   };
 
+
   const examName = exam?.esame_scelto || "Nessun Esame Selezionato";
   const examUni = exam?.universita || "Università non specificata";
+
+  const getGlowColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'libro': return '#3b82f6'; // blue-500
+      case 'link': return '#22c55e'; // green-500
+      case 'appunto': return '#eab308'; // yellow-500
+      case 'flashcard': return '#f472b6'; // pink-400
+      case 'quiz': return '#fb923c'; // orange-400
+      case 'audio': return '#818cf8'; // indigo-400
+      default: return '#a855f7'; // purple-500
+    }
+  };
   const examFac = exam?.facolta || "Facoltà non specificata";
   const examYear = exam?.anno_universita || "-";
 
@@ -353,7 +552,6 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       { phase: "In attesa di generazione...", material: "-", deadline: "-", status: "-" }
     ],
     dailyDeliverables: {
-      videos: [{ title: "In attesa di generazione...", script: "..." }],
       flashcards: [{ front: "In attesa di generazione...", back: "..." }],
       quizzes: [{ question: "In attesa di generazione...", options: ["A", "B", "C", "D"], correctAnswer: "A" }],
       audios: [{ title: "In attesa di generazione...", dialogue: "..." }]
@@ -378,14 +576,16 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       {/* Start Button */}
       {(!started || systemError) && !loadingPlan && (
         <div className="flex justify-center py-8">
-          <button
-            onClick={handleStart}
-            disabled={!exam}
-            className="flex items-center gap-2 bg-brand-primary hover:bg-brand-hover text-white px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-elevation-card disabled:opacity-50 btn-3d"
-          >
-            <Play fill="currentColor" size={20} />
-            {systemError ? 'Riprova Generazione' : 'Genera Piano di Studio Verticale'}
-          </button>
+          <GlowWrapper opacity={0.6} glowColor="black">
+            <button
+              onClick={handleStart}
+              disabled={!exam}
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-hover text-white px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-elevation-card disabled:opacity-50 btn-3d"
+            >
+              <Play fill="currentColor" size={20} />
+              {systemError ? 'Riprova Generazione' : 'Genera Piano di Studio Verticale'}
+            </button>
+          </GlowWrapper>
         </div>
       )}
 
@@ -436,6 +636,11 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             </div>
           </div>
 
+          {/* Progress Dashboard Section */}
+          <div className="glass-panel rounded-3xl p-8 shadow-elevation-card">
+            <ProgressDashboard />
+          </div>
+
           {/* Fase 1: Macro Area */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel rounded-3xl p-8 shadow-elevation-card space-y-6">
             <div className="flex items-center gap-3 mb-2">
@@ -448,27 +653,18 @@ export default function StudyDashboard({ exam }: { exam: any }) {
               </div>
             </div>
             
-            <div className="overflow-x-auto border border-border-subtle rounded-widget">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-bg-base text-text-secondary font-medium border-b border-border-subtle">
-                  <tr>
-                    <th className="px-6 py-4">Nome Elemento</th>
-                    <th className="px-6 py-4">Tipo</th>
-                    <th className="px-6 py-4">Dettagli (Autore/Durata)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {displayPlan.macroInventory.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-bg-base transition-colors">
-                      <td className="px-6 py-4 font-medium text-text-primary">{item.name}</td>
-                      <td className="px-6 py-4 text-text-secondary">
-                        <span className="inline-block bg-surface-interactive text-text-primary px-2.5 py-1 rounded-md text-xs font-medium">{item.type}</span>
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary">{item.details}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayPlan.macroInventory.map((item, idx) => (
+                <GlowWrapper key={idx} opacity={0.3} glowColor={getGlowColor(item.type)} className="h-full">
+                  <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-2 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full">
+                    <div className="font-bold text-text-primary text-lg">{item.name}</div>
+                    <div className="text-sm text-text-secondary">{item.details}</div>
+                    <div className="mt-auto pt-4">
+                      <span className="inline-block bg-surface-interactive text-text-primary px-2.5 py-1 rounded-md text-xs font-medium">{item.type}</span>
+                    </div>
+                  </div>
+                </GlowWrapper>
+              ))}
             </div>
           </motion.div>
 
@@ -486,38 +682,28 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             
             <div className="space-y-6">
               {displayPlan.mediumBlocks.map((block) => (
-                <div key={block.blockName} className="bg-bg-base border border-border-subtle rounded-widget overflow-hidden">
-                  <div className="p-5 bg-brand-secondary border-b border-border-subtle">
-                    <span className="font-semibold text-lg text-brand-primary">{block.blockName}</span>
-                  </div>
-                  <div className="p-6 bg-surface-primary">
-                    <h4 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Tabella Dati Intermedia</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-bg-base text-text-secondary font-medium border-b border-border-subtle">
-                          <tr>
-                            <th className="px-6 py-4">Materiale Assegnato</th>
-                            <th className="px-6 py-4">Tipo</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100">
-                          {block.assignedMaterial.map((mat, idx) => (
-                            <tr key={idx} className="hover:bg-bg-base transition-colors">
-                              <td className="px-6 py-4 font-medium text-text-primary">{mat.material}</td>
-                              <td className="px-6 py-4 text-text-secondary">
-                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                                  mat.type.toLowerCase().includes('libro') ? 'bg-brand-secondary text-brand-primary' :
-                                  mat.type.toLowerCase().includes('link') ? 'bg-status-success-bg text-status-success' :
-                                  'bg-status-warning-bg text-status-warning'
-                                }`}>{mat.type}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                <GlowWrapper key={block.blockName} opacity={0.3} glowColor="#a855f7" className="h-full">
+                  <div className="bg-bg-base border border-border-subtle rounded-widget overflow-hidden h-full flex flex-col">
+                    <div className="p-5 bg-brand-secondary border-b border-border-subtle">
+                      <span className="font-semibold text-lg text-brand-primary">{block.blockName}</span>
+                    </div>
+                    <div className="p-6 bg-surface-primary flex-1">
+                      <h4 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Materiale Assegnato</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {block.assignedMaterial.map((mat, idx) => (
+                          <div key={idx} className="bg-bg-base p-4 rounded-widget border border-border-subtle flex flex-col gap-2">
+                            <div className="font-medium text-text-primary">{mat.material}</div>
+                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium w-fit ${
+                              mat.type.toLowerCase().includes('libro') ? 'bg-brand-secondary text-brand-primary' :
+                              mat.type.toLowerCase().includes('link') ? 'bg-status-success-bg text-status-success' :
+                              'bg-status-warning-bg text-status-warning'
+                            }`}>{mat.type}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </GlowWrapper>
               ))}
             </div>
           </motion.div>
@@ -536,97 +722,98 @@ export default function StudyDashboard({ exam }: { exam: any }) {
 
             <div>
               <h3 className="font-semibold text-text-primary mb-4">Task Operativi (Giorno 1)</h3>
-              <div className="overflow-x-auto border border-border-subtle rounded-widget">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-bg-base text-text-secondary font-medium border-b border-border-subtle">
-                    <tr>
-                      <th className="px-6 py-4">Fase di Studio</th>
-                      <th className="px-6 py-4">Materiale Isolato</th>
-                      <th className="px-6 py-4">Scadenza</th>
-                      <th className="px-6 py-4">Stato</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {displayPlan.dailyTasks.map((task, idx) => (
-                      <tr key={idx} className="hover:bg-bg-base transition-colors">
-                        <td className="px-6 py-4 font-medium text-text-primary">{task.phase}</td>
-                        <td className="px-6 py-4 text-text-secondary">{task.material}</td>
-                        <td className="px-6 py-4 text-text-secondary">{task.deadline}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-status-warning-bg text-status-warning rounded-md text-xs font-medium">
-                            {task.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-8">
+                {displayPlan.dailyTasks.map((task, idx) => (
+                  <GlowWrapper key={idx} opacity={0.3} glowColor="#a855f7" className="h-full">
+                    <div className="bg-surface-primary border border-border-subtle rounded-widget p-6 hover:shadow-elevation-card transition-all duration-300">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="px-2.5 py-1 bg-brand-secondary text-brand-primary rounded-md text-xs font-bold uppercase tracking-wider">
+                              {task.phase}
+                            </span>
+                            <span className="px-2.5 py-1 bg-status-warning-bg text-status-warning rounded-md text-xs font-medium">
+                              {task.status}
+                            </span>
+                          </div>
+                          <p className="text-text-primary font-medium text-lg">{task.material}</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-text-secondary bg-bg-base px-4 py-2 rounded-lg border border-border-subtle shrink-0">
+                          <Clock size={16} className="text-brand-primary" />
+                          <span className="text-sm font-medium">{task.deadline}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </GlowWrapper>
+                ))}
               </div>
             </div>
 
             <div>
               <h3 className="font-semibold text-text-primary mb-4">Deliverables Obbligatori (Generati per Oggi)</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-status-danger-bg text-status-danger rounded-full flex items-center justify-center"><Video size={20} /></div>
-                    <div className="font-bold text-text-primary">1 Video</div>
-                  </div>
-                  <ul className="text-sm text-text-secondary space-y-2 list-none">
-                    {displayPlan.dailyDeliverables.videos.map((v, i) => (
-                      <li key={i}>
-                        <button onClick={() => setActiveDeliverable({ type: 'video', data: v, title: v.title })} className="text-left hover:text-status-danger transition-colors flex items-start gap-2">
-                          <span className="text-status-danger mt-0.5">•</span>
-                          <span className="font-medium">{v.title}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <GlowWrapper opacity={0.3} glowColor={getGlowColor('flashcard')} className="h-full">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-status-info-bg text-status-info rounded-full flex items-center justify-center"><FileText size={20} /></div>
+                      <div className="font-bold text-text-primary text-lg">1 Set Flashcard</div>
+                    </div>
+                    <ul className="text-sm text-text-secondary space-y-2 list-none">
+                      <li>
+                        <button onClick={() => setActiveDeliverable({ type: 'flashcard', data: displayPlan.dailyDeliverables.flashcards, title: 'Set di Flashcard' })} className="text-left hover:text-status-info transition-colors flex items-start gap-2">
+                          <span className="text-status-info mt-0.5">•</span>
+                          <span className="font-medium">Apri Set ({displayPlan.dailyDeliverables.flashcards.length} carte)</span>
                         </button>
                       </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-status-info-bg text-status-info rounded-full flex items-center justify-center"><FileText size={20} /></div>
-                    <div className="font-bold text-text-primary">1 Set Flashcard</div>
-                  </div>
-                  <ul className="text-sm text-text-secondary space-y-2 list-none">
-                    <li>
-                      <button onClick={() => setActiveDeliverable({ type: 'flashcard', data: displayPlan.dailyDeliverables.flashcards, title: 'Set di Flashcard' })} className="text-left hover:text-status-info transition-colors flex items-start gap-2">
-                        <span className="text-status-info mt-0.5">•</span>
-                        <span className="font-medium">Apri Set ({displayPlan.dailyDeliverables.flashcards.length} carte)</span>
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-                <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-status-success-bg text-status-success rounded-full flex items-center justify-center"><BrainCircuit size={20} /></div>
-                    <div className="font-bold text-text-primary">1 Quiz</div>
-                  </div>
-                  <ul className="text-sm text-text-secondary space-y-2 list-none">
-                    <li>
-                      <button onClick={() => setActiveDeliverable({ type: 'quiz', data: displayPlan.dailyDeliverables.quizzes, title: 'Quiz di Verifica' })} className="text-left hover:text-status-success transition-colors flex items-start gap-2">
-                        <span className="text-status-success mt-0.5">•</span>
-                        <span className="font-medium">Avvia Quiz ({displayPlan.dailyDeliverables.quizzes.length} domande)</span>
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-                <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-brand-secondary text-brand-primary rounded-full flex items-center justify-center"><Mic size={20} /></div>
-                    <div className="font-bold text-text-primary">1 Audio</div>
-                  </div>
-                  <ul className="text-sm text-text-secondary space-y-2 list-none">
-                    {displayPlan.dailyDeliverables.audios.map((a, i) => (
-                      <li key={i}>
-                        <button onClick={() => setActiveDeliverable({ type: 'audio', data: a, title: a.title })} className="text-left hover:text-brand-primary transition-colors flex items-start gap-2">
-                          <span className="text-brand-primary mt-0.5">•</span>
-                          <span className="font-medium">{a.title}</span>
+                    </ul>
+                  </motion.div>
+                </GlowWrapper>
+                <GlowWrapper opacity={0.3} glowColor={getGlowColor('quiz')} className="h-full">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-status-success-bg text-status-success rounded-full flex items-center justify-center"><BrainCircuit size={20} /></div>
+                      <div className="font-bold text-text-primary text-lg">1 Quiz</div>
+                    </div>
+                    <ul className="text-sm text-text-secondary space-y-2 list-none">
+                      <li>
+                        <button onClick={() => setActiveDeliverable({ type: 'quiz', data: displayPlan.dailyDeliverables.quizzes, title: 'Quiz di Verifica' })} className="text-left hover:text-status-success transition-colors flex items-start gap-2">
+                          <span className="text-status-success mt-0.5">•</span>
+                          <span className="font-medium">Avvia Quiz ({displayPlan.dailyDeliverables.quizzes.length} domande)</span>
                         </button>
                       </li>
-                    ))}
-                  </ul>
-                </div>
+                    </ul>
+                  </motion.div>
+                </GlowWrapper>
+                <GlowWrapper opacity={0.3} glowColor={getGlowColor('audio')} className="h-full">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-brand-secondary text-brand-primary rounded-full flex items-center justify-center"><Mic size={20} /></div>
+                      <div className="font-bold text-text-primary text-lg">1 Audio</div>
+                    </div>
+                    <ul className="text-sm text-text-secondary space-y-2 list-none">
+                      {displayPlan.dailyDeliverables.audios.map((a, i) => (
+                        <li key={i}>
+                          <button onClick={() => setActiveDeliverable({ type: 'audio', data: a, title: a.title })} className="text-left hover:text-brand-primary transition-colors flex items-start gap-2">
+                            <span className="text-brand-primary mt-0.5">•</span>
+                            <span className="font-medium">{a.title}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                </GlowWrapper>
               </div>
             </div>
           </motion.div>
@@ -643,8 +830,17 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                   <p className="text-sm text-text-secondary mt-1">Memoria isolata al materiale di oggi. Non rispondo su argomenti futuri/passati.</p>
                 </div>
               </div>
-              <div className="px-3 py-1 bg-status-danger-bg text-status-danger border border-status-danger rounded-button text-xs font-bold tracking-wider uppercase">
-                Blocco Memoria Attivo
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={refreshCopilot}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  title="Aggiorna contesto Copilot"
+                >
+                  <RefreshCw size={20} />
+                </button>
+                <div className="px-3 py-1 bg-status-danger-bg text-status-danger border border-status-danger rounded-button text-xs font-bold tracking-wider uppercase">
+                  Blocco Memoria Attivo
+                </div>
               </div>
             </div>
 
@@ -711,7 +907,6 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             >
               <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-bg-base/50">
                 <div className="flex items-center gap-3">
-                  {activeDeliverable.type === 'video' && <div className="p-2 bg-status-danger-bg text-status-danger rounded-button"><Video size={24} /></div>}
                   {activeDeliverable.type === 'flashcard' && <div className="p-2 bg-status-info-bg text-status-info rounded-button"><FileText size={24} /></div>}
                   {activeDeliverable.type === 'quiz' && <div className="p-2 bg-status-success-bg text-status-success rounded-button"><BrainCircuit size={24} /></div>}
                   {activeDeliverable.type === 'audio' && <div className="p-2 bg-brand-secondary text-brand-primary rounded-button"><Mic size={24} /></div>}
@@ -726,18 +921,108 @@ export default function StudyDashboard({ exam }: { exam: any }) {
               </div>
               
               <div className="p-6 overflow-y-auto flex-1 bg-surface-primary">
-                {activeDeliverable.type === 'video' && (
-                  <div className="prose prose-zinc max-w-none">
-                    <div className="whitespace-pre-wrap font-medium text-text-primary leading-relaxed">
-                      {activeDeliverable.data.script}
-                    </div>
-                  </div>
-                )}
-                
                 {activeDeliverable.type === 'audio' && (
-                  <div className="prose prose-zinc max-w-none">
-                    <div className="whitespace-pre-wrap font-medium text-text-primary leading-relaxed">
-                      {activeDeliverable.data.dialogue}
+                  <div className="space-y-8">
+                    <div className="bg-bg-base border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+                      {/* Dynamic Slideshow Background */}
+                      <div className="relative h-80 bg-black flex items-center justify-center overflow-hidden">
+                        <AnimatePresence mode="wait">
+                          {podcastImages.length > 0 ? (
+                            <motion.img
+                              key={currentImageIndex}
+                              src={podcastImages[currentImageIndex]}
+                              initial={{ opacity: 0, scale: 1.1 }}
+                              animate={{ opacity: 0.6, scale: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 1.5, ease: "easeInOut" }}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/20 to-brand-secondary/20 flex flex-col items-center justify-center">
+                              {generatingVisuals ? (
+                                <>
+                                  <Loader2 className="animate-spin text-brand-primary mb-2" size={32} />
+                                  <span className="text-xs font-bold text-brand-primary uppercase tracking-widest">Generazione Visuals IA...</span>
+                                </>
+                              ) : (
+                                <div className="flex flex-col items-center gap-2 opacity-30">
+                                  <Volume2 size={48} className="text-brand-primary" />
+                                  <span className="text-xs font-bold uppercase tracking-widest">In attesa di generazione</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </AnimatePresence>
+                        
+                        {/* Audio Overlay UI */}
+                        <div className="relative z-10 text-center space-y-4 p-6">
+                          <div className="w-16 h-16 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full flex items-center justify-center mx-auto shadow-xl">
+                            <Mic size={32} />
+                          </div>
+                          <div>
+                            <h4 className="text-2xl font-bold text-white drop-shadow-md">NotebookLM Audio Overview</h4>
+                            <p className="text-white/80 text-sm drop-shadow-sm font-medium">Joe & Jane • Podcast Didattico</p>
+                          </div>
+                          {podcastImages.length > 0 && (
+                            <div className="flex justify-center gap-1 mt-4">
+                              {podcastImages.map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={`h-1 rounded-full transition-all duration-500 ${i === currentImageIndex ? 'w-8 bg-brand-primary' : 'w-2 bg-white/30'}`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-8 text-center space-y-6">
+                        <div className="pt-2">
+                          {audioUrl ? (
+                            <div className="space-y-4">
+                              <audio 
+                                ref={audioRef} 
+                                src={audioUrl} 
+                                onEnded={() => setIsPlaying(false)}
+                                className="hidden"
+                              />
+                              <div className="flex items-center justify-center gap-6">
+                                <button 
+                                  onClick={toggleAudio}
+                                  className="w-20 h-20 bg-brand-primary text-white rounded-full flex items-center justify-center hover:bg-brand-hover transition-all shadow-elevation-floating hover:scale-105 active:scale-95"
+                                >
+                                  {isPlaying ? <Pause size={40} /> : <Play size={40} fill="currentColor" className="ml-1" />}
+                                </button>
+                              </div>
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="text-sm font-bold text-brand-primary animate-pulse uppercase tracking-wider">
+                                  {isPlaying ? 'In Riproduzione' : 'Pronto per l\'ascolto'}
+                                </div>
+                                <p className="text-xs text-text-secondary italic">L'audio e le immagini cambieranno automaticamente durante la lezione.</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => handleGenerateAudio(activeDeliverable.data.dialogue)}
+                              disabled={generatingAudio || generatingVisuals}
+                              className="flex items-center gap-3 bg-brand-primary hover:bg-brand-hover text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all disabled:opacity-50 shadow-elevation-card mx-auto hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                              {generatingAudio || generatingVisuals ? <Loader2 className="animate-spin" size={28} /> : <Volume2 size={28} />}
+                              {generatingAudio || generatingVisuals ? 'Generazione Esperienza NotebookLM...' : 'Genera Podcast con Slideshow IA'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="prose prose-zinc max-w-none">
+                      <h5 className="text-lg font-bold text-text-primary mb-4 border-b pb-2 flex items-center gap-2">
+                        <FileText size={20} className="text-brand-primary" />
+                        Trascrizione del Dialogo
+                      </h5>
+                      <div className="whitespace-pre-wrap font-medium text-text-primary leading-relaxed bg-bg-base p-8 rounded-2xl border border-border-subtle italic shadow-inner">
+                        {activeDeliverable.data.dialogue}
+                      </div>
                     </div>
                   </div>
                 )}

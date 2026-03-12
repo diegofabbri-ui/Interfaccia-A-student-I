@@ -101,58 +101,62 @@ export default function ProfessorsView() {
 
       <div className="grid md:grid-cols-3 gap-8">
         {/* Form Aggiunta */}
-        <PremiumCard 
-          noTilt
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="md:col-span-1 bg-white p-6 sm:p-10 lg:p-14 rounded-2xl border border-zinc-200 shadow-sm h-fit"
-        >
-          <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 scale-[0.95] origin-left">
-            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
-              <UserPlus size={24} strokeWidth={1.5} />
+        <GlowWrapper opacity={0.2} glowColor="black" className="rounded-2xl" alwaysOn>
+          <PremiumCard 
+            noTilt
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:col-span-1 bg-white p-6 sm:p-10 lg:p-14 rounded-2xl border border-zinc-200 shadow-sm h-fit"
+          >
+            <div style={{ transform: "translateZ(30px)" }} className="flex items-center gap-4 mb-6 scale-[0.95] origin-left">
+              <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
+                <UserPlus size={24} strokeWidth={1.5} />
+              </div>
+              <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">Nuovo Professore</h2>
             </div>
-            <h2 className="text-2xl font-medium text-zinc-900 tracking-tight">Nuovo Professore</h2>
-          </div>
 
-          <form onSubmit={handleAddProfessor} className="space-y-6 scale-[0.95] origin-top" style={{ transform: "translateZ(40px)" }}>
-            <div>
-              <label className="block text-sm font-medium text-zinc-900 mb-2">Nome Professore</label>
-              <GlowWrapper className="rounded-xl">
-                <input 
-                  required
-                  type="text" 
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
-                  placeholder="es. Mario Rossi"
-                />
+            <form onSubmit={handleAddProfessor} className="space-y-6 scale-[0.95] origin-top" style={{ transform: "translateZ(40px)" }}>
+              <div>
+                <label className="block text-sm font-medium text-zinc-900 mb-2">Nome Professore</label>
+                <GlowWrapper className="rounded-xl" opacity={0.15}>
+                  <input 
+                    required
+                    type="text" 
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all bg-white"
+                    placeholder="es. Mario Rossi"
+                  />
+                </GlowWrapper>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-900 mb-2">Descrizione / Note</label>
+                <GlowWrapper className="rounded-xl" opacity={0.15}>
+                  <textarea 
+                    required
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none resize-none transition-all bg-white"
+                    placeholder="Inserisci una descrizione, stile di insegnamento, argomenti preferiti..."
+                  />
+                </GlowWrapper>
+              </div>
+
+              <GlowWrapper className="rounded-xl" opacity={0.3} alwaysOn>
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={20} strokeWidth={1.5} /> : <UserPlus size={20} strokeWidth={1.5} />}
+                  {loading ? 'Salvataggio...' : 'Aggiungi Professore'}
+                </button>
               </GlowWrapper>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-900 mb-2">Descrizione / Note</label>
-              <GlowWrapper className="rounded-xl">
-                <textarea 
-                  required
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none resize-none transition-all bg-white"
-                  placeholder="Inserisci una descrizione, stile di insegnamento, argomenti preferiti..."
-                />
-              </GlowWrapper>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium py-4 px-4 rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
-            >
-              {loading ? <Loader2 className="animate-spin" size={20} strokeWidth={1.5} /> : <UserPlus size={20} strokeWidth={1.5} />}
-              {loading ? 'Salvataggio...' : 'Aggiungi Professore'}
-            </button>
-          </form>
-        </PremiumCard>
+            </form>
+          </PremiumCard>
+        </GlowWrapper>
 
         {/* Lista Professori */}
         <PremiumCard 
@@ -177,24 +181,28 @@ export default function ProfessorsView() {
             ) : (
               <div className="space-y-4">
                 {professors.map(prof => (
-                  <div key={prof.id} className="p-6 border border-zinc-200 rounded-2xl hover:border-zinc-400 transition-colors group relative bg-zinc-50/50">
-                    <div className="flex justify-between items-start gap-4">
-                      <div>
-                        <h3 className="font-medium text-xl text-zinc-900 tracking-tight">{prof.name}</h3>
-                        <div className="flex items-start gap-3 mt-3 text-zinc-500 text-sm font-light">
-                          <FileText size={18} className="mt-0.5 shrink-0 text-zinc-400" strokeWidth={1.5} />
-                          <p className="whitespace-pre-wrap leading-relaxed">{prof.description}</p>
+                  <GlowWrapper key={prof.id} opacity={0.1} glowColor="black" className="rounded-2xl">
+                    <div className="group relative bg-white border border-zinc-200 rounded-2xl p-6 hover:border-zinc-400 hover:bg-zinc-50/50 transition-all duration-300 shadow-sm hover:shadow-md">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-lg text-zinc-950 tracking-tight">{prof.name}</h3>
+                          <div className="flex items-start gap-3 mt-3 text-zinc-600 text-sm font-light">
+                            <FileText size={16} className="mt-0.5 shrink-0 text-zinc-400" strokeWidth={1.5} />
+                            <p className="whitespace-pre-wrap leading-relaxed">{prof.description}</p>
+                          </div>
                         </div>
+                        <GlowWrapper opacity={0.2} glowColor="black" className="rounded-lg">
+                          <button 
+                            onClick={() => handleDelete(prof.id)}
+                            className="p-2 text-zinc-400 group-hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 opacity-40 group-hover:opacity-100"
+                            title="Elimina"
+                          >
+                            <Trash2 size={18} strokeWidth={1.5} />
+                          </button>
+                        </GlowWrapper>
                       </div>
-                      <button 
-                        onClick={() => handleDelete(prof.id)}
-                        className="p-3 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100"
-                        title="Elimina"
-                      >
-                        <Trash2 size={20} strokeWidth={1.5} />
-                      </button>
                     </div>
-                  </div>
+                  </GlowWrapper>
                 ))}
               </div>
             )}

@@ -38,6 +38,7 @@ export default function ProgressDashboard() {
   const [weeklyData, setWeeklyData] = useState<{ name: string; ore: number }[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ name: string; ore: number }[]>([]);
   const [timeDistribution, setTimeDistribution] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [recentSessions, setRecentSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,9 +67,10 @@ export default function ProgressDashboard() {
         .from('study_sessions')
         .select('*')
         .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
-        .order('date', { ascending: true });
+        .order('date', { ascending: false });
 
       if (sessions) {
+        setRecentSessions(sessions.slice(0, 5) as SessionData[]);
         processChartsData(sessions as SessionData[]);
       }
 
@@ -189,77 +191,59 @@ export default function ProgressDashboard() {
         <p className="text-zinc-500 font-light text-lg">Monitora il tuo percorso universitario.</p>
       </header>
 
-      {/* Top Highlights - Streak & Level */}
-      <div className="grid lg:grid-cols-12 gap-12 relative z-10 w-full max-w-5xl mx-auto">
+      {/* Unified Stats Grid - 4 Columns */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 w-full max-w-5xl mx-auto">
         {/* Streak Card */}
         <PremiumCard 
           dark
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-5 bg-zinc-900 p-6 rounded-2xl text-white flex flex-col items-center justify-center text-center relative shadow-sm"
+          className="bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 rounded-2xl text-white flex flex-col items-center justify-center text-center relative shadow-sm hover:shadow-lg hover:shadow-zinc-900/20 transition-all duration-300 col-span-2"
         >
-          <div className="flex items-center gap-2 mb-3">
-            <Flame size={18} className="text-zinc-400" strokeWidth={1.5} />
-            <span className="text-zinc-400 font-medium tracking-widest uppercase text-[10px]">Streak Attuale</span>
+          <div className="flex items-center gap-2 mb-2">
+            <Flame size={20} className="text-zinc-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)]" strokeWidth={1.5} />
+            <span className="text-zinc-400 font-medium tracking-widest uppercase text-[10px]">Streak</span>
           </div>
-          <div className="z-10">
-            <h2 className="text-4xl font-light leading-none tracking-tighter">{progress.streak_days} <span className="text-lg text-zinc-500 font-light">giorni</span></h2>
-          </div>
+          <h2 className="text-3xl font-light tracking-tighter">{progress.streak_days} <span className="text-sm text-zinc-500 font-light">gg</span></h2>
         </PremiumCard>
 
         {/* Level Card */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="lg:col-span-7 bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center relative"
+          className="bg-gradient-to-br from-white to-zinc-50/80 backdrop-blur-sm p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center items-center text-center relative hover:border-zinc-400 hover:shadow-md transition-all duration-300 col-span-2"
         >
-          <div className="flex items-center justify-center gap-2 mb-4 relative z-10">
-            <Trophy size={18} className="text-zinc-400" strokeWidth={1.5} />
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy size={20} className="text-zinc-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)]" strokeWidth={1.5} />
             <span className="text-zinc-500 font-medium tracking-widest uppercase text-[10px]">Livello {progress.level}</span>
           </div>
-          <div className="flex-1 relative z-10 w-full max-w-md mx-auto">
-            <div className="flex justify-between items-end mb-2">
-              <h2 className="text-2xl font-light text-zinc-900 tracking-tighter">{progress.xp_current} <span className="text-base text-zinc-400 font-light">/ 1000 XP</span></h2>
-            </div>
-            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden relative">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${(progress.xp_current / 1000) * 100}%` }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
-                className="bg-zinc-900 h-full rounded-full relative" 
-              />
-            </div>
-            <p className="text-zinc-400 font-light mt-3 text-xs flex items-center justify-center gap-2">
-              <Star size={12} className="text-zinc-300" strokeWidth={1.5} />
-              {progress.xp_total} XP totali accumulati
-            </p>
-          </div>
+          <h2 className="text-3xl font-light text-zinc-900 tracking-tighter">{progress.xp_current} <span className="text-sm text-zinc-400 font-light">XP</span></h2>
         </PremiumCard>
-      </div>
 
-      {/* Stats Grid - 6 Columns */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 relative z-10 w-full max-w-5xl mx-auto">
+        {/* Other Stats */}
         {[
-          { label: 'Media Voti', value: progress.average_grade.toFixed(1), icon: GraduationCap },
-          { label: 'Esami Superati', value: `${progress.exams_passed}/${progress.exams_total}`, icon: CheckCircle },
-          { label: 'Ore Totali', value: `${progress.total_study_hours}h`, icon: Clock },
-          { label: 'Studio Streak', value: `${progress.studio_streak_days} gg`, icon: Flame },
-          { label: 'Argomenti', value: progress.topics_completed, icon: Target },
-          { label: 'Simulazioni', value: progress.simulations_completed, icon: Activity },
+          { label: 'Media Voti', value: progress.average_grade.toFixed(1), icon: GraduationCap, colSpan: 1 },
+          { label: 'Esami Superati', value: `${progress.exams_passed}/${progress.exams_total}`, icon: CheckCircle, colSpan: 1 },
+          { label: 'Ore Totali', value: `${progress.total_study_hours}h`, icon: Clock, colSpan: 1 },
+          { label: 'Studio Streak', value: `${progress.studio_streak_days} gg`, icon: Flame, colSpan: 1 },
+          { label: 'Argomenti', value: progress.topics_completed, icon: Target, colSpan: 2 },
+          { label: 'Simulazioni', value: progress.simulations_completed, icon: Activity, colSpan: 2 },
         ].map((stat, i) => (
           <PremiumCard 
             key={i}
+            gradient
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center group hover:border-zinc-400 transition-colors"
+            className={`bg-gradient-to-br from-white to-zinc-50/80 backdrop-blur-sm p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center group hover:border-zinc-400 hover:shadow-md transition-all duration-300 ${stat.colSpan === 2 ? 'col-span-2' : 'col-span-1'}`}
           >
-            <div className="mb-3">
-              <stat.icon size={18} className="text-zinc-400 group-hover:text-zinc-900 transition-colors" strokeWidth={1.5} />
+            <div className="mb-2">
+              <stat.icon size={20} className="text-zinc-400 group-hover:text-zinc-900 transition-colors drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)]" strokeWidth={1.5} />
             </div>
             <div>
-              <span className="text-xl font-light text-zinc-900 mb-1 tracking-tight block">{stat.value}</span>
+              <span className="text-xl font-light text-zinc-900 mb-0.5 tracking-tight block">{stat.value}</span>
               <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">{stat.label}</span>
             </div>
           </PremiumCard>
@@ -270,6 +254,7 @@ export default function ProgressDashboard() {
       <div className="grid lg:grid-cols-2 gap-12 relative z-10 w-full max-w-5xl mx-auto">
         {/* Weekly Chart */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
@@ -305,6 +290,7 @@ export default function ProgressDashboard() {
 
         {/* Weekly Trend */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
@@ -333,6 +319,7 @@ export default function ProgressDashboard() {
 
         {/* Time Distribution */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
@@ -384,6 +371,7 @@ export default function ProgressDashboard() {
 
         {/* Monthly Overview */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm"
@@ -427,6 +415,7 @@ export default function ProgressDashboard() {
       <div className="grid lg:grid-cols-3 gap-12 relative z-10 w-full max-w-5xl mx-auto">
         {/* Strengths */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
@@ -442,6 +431,7 @@ export default function ProgressDashboard() {
 
         {/* Weaknesses */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
@@ -457,16 +447,26 @@ export default function ProgressDashboard() {
 
         {/* History */}
         <PremiumCard 
+          gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center text-center"
+          className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col"
         >
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <History size={16} className="text-zinc-400" strokeWidth={1.5} />
-            <h3 className="text-sm font-medium text-zinc-900">Storico Esami</h3>
+            <h3 className="text-sm font-medium text-zinc-900">Sessioni Recenti</h3>
           </div>
-          <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100 w-full">
-            <p className="text-zinc-600 text-xs font-light leading-relaxed">Nessun esame completato di recente.</p>
+          <div className="space-y-3">
+            {recentSessions.length > 0 ? (
+              recentSessions.map((session, i) => (
+                <div key={i} className="flex justify-between items-center text-xs border-b border-zinc-100 pb-2 last:border-0 last:pb-0">
+                  <span className="text-zinc-600 font-light">{session.date}</span>
+                  <span className="text-zinc-900 font-medium">{session.hours_studied}h - {session.category}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-zinc-400 text-xs font-light italic">Nessuna sessione recente.</p>
+            )}
           </div>
         </PremiumCard>
       </div>

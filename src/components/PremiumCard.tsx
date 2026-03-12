@@ -6,9 +6,13 @@ interface PremiumCardProps extends HTMLMotionProps<"div"> {
   className?: string;
   dark?: boolean;
   noTilt?: boolean;
+  gradient?: boolean; // New prop
 }
 
-export default function PremiumCard({ children, className = '', dark = false, noTilt = false, ...props }: PremiumCardProps) {
+export default function PremiumCard({ children, className = '', dark = false, noTilt = false, gradient = false, ...props }: PremiumCardProps) {
+  // ... (rest of the component)
+  // Inside the return, after the spotlight effect:
+  // {gradient && <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-2xl pointer-events-none z-0" />}
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -110,6 +114,9 @@ export default function PremiumCard({ children, className = '', dark = false, no
             background: useMotionTemplate`radial-gradient(600px circle at ${mouseX}px ${mouseY}px, ${spotlightColor}, transparent 40%)`
           }}
         />
+        
+        {/* Subtle Gradient Overlay */}
+        {gradient && <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-2xl pointer-events-none z-0" />}
         
         {/* Content Wrapper with 3D translation */}
         <div 

@@ -74,29 +74,29 @@ export default function ExamHistoryView() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:border-zinc-400 transition-all group"
+                className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm hover:border-2 hover:border-zinc-900 transition-all group"
               >
-                <div style={{ transform: "translateZ(30px)" }} className="flex items-start justify-between mb-6">
+                <div className="flex items-start justify-between mb-6">
                   <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl group-hover:bg-zinc-900 group-hover:text-white transition-colors">
                     <BookOpen size={24} strokeWidth={1.5} />
                   </div>
                   <ChevronRight className="text-zinc-400 group-hover:text-zinc-900 transition-colors" strokeWidth={1.5} />
                 </div>
                 
-                <div style={{ transform: "translateZ(40px)" }}>
-                  <h3 className="text-xl font-medium text-zinc-900 mb-4 tracking-tight line-clamp-2">{exam.esame_scelto}</h3>
+                <div>
+                  <h3 className="text-lg font-medium text-zinc-950 mb-4 tracking-tight line-clamp-2">{exam.esame_scelto}</h3>
                   
-                  <div className="space-y-3 text-sm text-zinc-500 font-light">
+                  <div className="space-y-2 text-sm text-zinc-600 font-light">
                     <div className="flex items-center gap-3">
-                      <Building2 size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <Building2 size={16} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
                       <span className="truncate">{exam.universita || 'Università non specificata'}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <GraduationCap size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <GraduationCap size={16} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
                       <span className="truncate">{exam.facolta || 'Facoltà non specificata'}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Calendar size={18} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
+                      <Calendar size={16} className="shrink-0 text-zinc-400" strokeWidth={1.5} />
                       <span>{exam.anno_universita || 'Anno non specificato'}</span>
                     </div>
                   </div>

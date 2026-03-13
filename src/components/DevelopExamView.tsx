@@ -48,15 +48,11 @@ export default function DevelopExamView() {
 
   // Form 2 State
   const [selectedExamId, setSelectedExamId] = useState('');
-  const [materialType, setMaterialType] = useState<'professor_description' | 'professor_material'>('professor_description');
+  const [materialType, setMaterialType] = useState<'professor_material'>('professor_material');
   
   const [materialsData, setMaterialsData] = useState({
-    professor_description: {
-      frontendSectionId: 'section_prof_description',
-      fileNames: ['']
-    },
     professor_material: {
-      frontendSectionId: 'section_prof_materials',
+      frontendSectionId: '',
       fileNames: ['']
     }
   });
@@ -408,12 +404,8 @@ export default function DevelopExamView() {
       ]);
 
       setMaterialsData({
-        professor_description: {
-          frontendSectionId: 'section_prof_description',
-          fileNames: Array.from({ length: 6 }).map((_, i) => `descrizione_prof_parte_${i+1}.pdf`)
-        },
         professor_material: {
-          frontendSectionId: 'section_prof_materials',
+          frontendSectionId: '',
           fileNames: Array.from({ length: 6 }).map((_, i) => `materiale_prof_slide_${i+1}.pdf`)
         }
       });
@@ -849,18 +841,7 @@ export default function DevelopExamView() {
 
             <div>
               <label className="block text-sm font-medium text-zinc-900 mb-2">Tipo di Materiale</label>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setMaterialType('professor_description')}
-                  className={`w-full py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-                    materialType === 'professor_description' 
-                      ? 'bg-zinc-900 border-zinc-900 text-white shadow-md' 
-                      : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-                  }`}
-                >
-                  Descrizione Prof
-                </button>
+              <div className="grid grid-cols-1 gap-4">
                 <button
                   type="button"
                   onClick={() => setMaterialType('professor_material')}
@@ -876,15 +857,15 @@ export default function DevelopExamView() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-900 mb-2">ID Sezione Frontend</label>
+              <label className="block text-sm font-medium text-zinc-900 mb-2">Nome della Sezione di Origine</label>
               <input 
                 type="text" 
                 value={frontendSectionId}
                 onChange={e => setFrontendSectionId(e.target.value)}
                 className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white transition-all text-zinc-900"
-                placeholder="es. section_prof_materials"
+                placeholder="es. Slide Lezioni"
               />
-              <p className="text-xs text-zinc-500 mt-2">Identificativo della sezione da cui provengono i file.</p>
+              <p className="text-xs text-zinc-500 mt-2">Inserisci il nome della sezione o cartella da cui hai preso questi file.</p>
             </div>
 
             <div className="flex-1">

@@ -29,12 +29,12 @@ export default function App() {
               <span className="text-xl font-bold tracking-tight text-text-primary">A-Studenti-I</span>
             </div>
             
-            <nav className="flex gap-x-2 p-1.5 bg-gradient-to-b from-white/40 to-white/20 backdrop-blur-2xl rounded-full border border-white/40 shadow-2xl">
+            <nav className="flex gap-x-2 p-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20 shadow-inner">
               {navItems.map((item) => (
                 <motion.button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.4)" }}
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.2)" }}
                   whileTap={{ scale: 0.95 }}
                   className={`relative px-6 py-3 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                     activeTab === item.id
@@ -45,8 +45,8 @@ export default function App() {
                   {activeTab === item.id && (
                     <motion.div
                       layoutId="activeTabIndicator"
-                      className="absolute inset-0 bg-white/70 backdrop-blur-xl rounded-full shadow-lg border border-white/60"
-                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                      className="absolute inset-0 bg-white/80 backdrop-blur-2xl rounded-full shadow-lg border border-white/80"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
                   <item.icon size={20} className="relative z-10 drop-shadow-md" />

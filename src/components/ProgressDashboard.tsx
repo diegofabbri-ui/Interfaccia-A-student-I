@@ -15,9 +15,6 @@ import SearchComponent from './ui/animated-glowing-search-bar';
 type ProgressData = {
   id: string;
   streak_days: number;
-  level: number;
-  xp_current: number;
-  xp_total: number;
   average_grade: number;
   exams_passed: number;
   exams_total: number;
@@ -199,27 +196,13 @@ export default function ProgressDashboard() {
           gradient
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 rounded-2xl text-white flex flex-col items-center justify-center text-center relative shadow-sm hover:shadow-lg hover:shadow-zinc-900/20 transition-all duration-300 col-span-2"
+          className="bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 rounded-2xl text-white flex flex-col items-center justify-center text-center relative shadow-sm hover:shadow-lg hover:shadow-zinc-900/20 transition-all duration-300 col-span-4"
         >
           <div className="flex items-center gap-2 mb-2">
             <Flame size={20} className="text-zinc-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)]" strokeWidth={1.5} />
             <span className="text-zinc-400 font-medium tracking-widest uppercase text-[10px]">Streak</span>
           </div>
           <h2 className="text-3xl font-light tracking-tighter">{progress.streak_days} <span className="text-sm text-zinc-500 font-light">gg</span></h2>
-        </PremiumCard>
-
-        {/* Level Card */}
-        <PremiumCard 
-          gradient
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-white to-zinc-50/80 backdrop-blur-sm p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center items-center text-center relative hover:border-zinc-400 hover:shadow-md transition-all duration-300 col-span-2"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy size={20} className="text-zinc-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)]" strokeWidth={1.5} />
-            <span className="text-zinc-500 font-medium tracking-widest uppercase text-[10px]">Livello {progress.level}</span>
-          </div>
-          <h2 className="text-3xl font-light text-zinc-900 tracking-tighter">{progress.xp_current} <span className="text-sm text-zinc-400 font-light">XP</span></h2>
         </PremiumCard>
 
         {/* Other Stats */}

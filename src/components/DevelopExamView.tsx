@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { BookOpen, FileText, Link as LinkIcon, GraduationCap, Building2, Calendar, FilePlus, Plus, X, Database, CheckCircle2, Loader2 } from 'lucide-react';
+import { BookOpen, FileText, Link as LinkIcon, GraduationCap, Building2, Calendar, FilePlus, Plus, X, Database, CheckCircle2, Loader2, AlertCircle, UploadCloud, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 import { mockExams } from '../mockData/testExams';
 import PremiumCard from './PremiumCard';
@@ -13,25 +13,37 @@ type Exam = {
   universita: string;
   libri_supporto: string[];
   link_supporto: string[];
+  professore_id?: string;
+  giorni_mancanti?: number;
+  test_contenuto_libri?: string;
+  test_contenuto_descrizione_prof?: string;
+  test_contenuto_materiale_prof?: string;
 };
 
-type LibroState = { nome: string; suddivisioni: string[] };
+type LibroState = { nome: string; suddivisioni: string[]; files: File[] };
 
 import GlowWrapper from './GlowWrapper';
 
 export default function DevelopExamView() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [successNotification, setSuccessNotification] = useState(false);
+  const [notification, setNotification] = useState<{text: string, type: 'success' | 'error'} | null>(null);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+
+  const showNotification = (text: string, type: 'success' | 'error') => {
+    setNotification({ text, type });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Form 1 State
   const [esameScelto, setEsameScelto] = useState('');
   const [facolta, setFacolta] = useState('');
   const [annoUniversita, setAnnoUniversita] = useState('');
   const [universita, setUniversita] = useState('');
-  const [libriSupporto, setLibriSupporto] = useState<LibroState[]>([{ nome: '', suddivisioni: [''] }]);
+  const [professoreId, setProfessoreId] = useState('');
+  const [giorniMancanti, setGiorniMancanti] = useState('');
+  const [professors, setProfessors] = useState<{id: string, name: string}[]>([]);
+  const [libriSupporto, setLibriSupporto] = useState<LibroState[]>([{ nome: '', suddivisioni: [''], files: [] }]);
   const [linkSupporto, setLinkSupporto] = useState<string[]>(['']);
 
   // Form 2 State
@@ -74,6 +86,24 @@ export default function DevelopExamView() {
 
   useEffect(() => {
     fetchExams();
+    fetchProfessors();
+
+    const channel = supabase
+      .channel('exams-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'web_research_exams' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setExams(prev => [payload.new as Exam, ...prev]);
+        } else if (payload.eventType === 'DELETE') {
+          setExams(prev => prev.filter(e => e.id !== payload.old.id));
+        } else if (payload.eventType === 'UPDATE') {
+          setExams(prev => prev.map(e => e.id === payload.new.id ? payload.new as Exam : e));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchExams = async () => {
@@ -87,68 +117,129 @@ export default function DevelopExamView() {
     }
   };
 
+  const fetchProfessors = async () => {
+    const { data } = await supabase.from('professors').select('id, name');
+    if (data) setProfessors(data);
+  };
+
+  const getSupabaseErrorMessage = (error: any): string => {
+    switch (error.code) {
+      case '23505':
+        return 'Errore: Questo elemento esiste già (violazione di unicità).';
+      case '42501':
+        return 'Errore: Permessi insufficienti per eseguire questa operazione.';
+      case '42P01':
+        return 'Errore: La tabella richiesta non esiste nel database.';
+      case 'PGRST301':
+        return 'Errore: Violazione della policy di sicurezza (RLS).';
+      case '23503':
+        return 'Errore: Violazione di chiave esterna (riferimento non valido).';
+      default:
+        return `Errore: ${error.message || 'Si è verificato un errore sconosciuto.'}`;
+    }
+  };
+
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
 
-    const filteredLibri = libriSupporto
-      .filter(l => l.nome.trim() !== '')
-      .map(l => JSON.stringify({
-        nome: l.nome.trim(),
-        suddivisioni: l.suddivisioni.filter(s => s.trim() !== '')
-      }));
-    const filteredLink = linkSupporto.filter(l => l.trim() !== '');
+    try {
+      const filteredLibri = await Promise.all(
+        libriSupporto
+          .filter(l => l.nome.trim() !== '')
+          .map(async (l) => {
+            const fileUrls = await Promise.all(
+              l.files.map(async (file) => {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `books/${fileName}`;
+                
+                const { error: uploadError } = await supabase.storage
+                  .from('exam_materials')
+                  .upload(filePath, file);
+                  
+                if (uploadError) {
+                  console.error('Upload error:', uploadError);
+                  throw new Error(`Errore caricamento file per ${l.nome}: ${uploadError.message}`);
+                }
+                
+                const { data: publicUrlData } = supabase.storage
+                  .from('exam_materials')
+                  .getPublicUrl(filePath);
+                  
+                return publicUrlData.publicUrl;
+              })
+            );
 
-    const { data, error } = await supabase
-      .from('web_research_exams')
-      .insert([
-        {
-          esame_scelto: esameScelto,
-          facolta,
-          anno_universita: annoUniversita,
-          universita,
-          libri_supporto: filteredLibri,
-          link_supporto: filteredLink,
+            return JSON.stringify({
+              nome: l.nome.trim(),
+              suddivisioni: l.suddivisioni.filter(s => s.trim() !== ''),
+              fileUrls: fileUrls
+            });
+          })
+      );
+
+      const filteredLink = linkSupporto.filter(l => l.trim() !== '');
+
+      const isBio = esameScelto.toLowerCase().includes('bioingegneria');
+      const testContenutoLibri = isBio ? 
+        "CONTENUTO ESTRATTO DAI LIBRI DI BIOINGEGNERIA:\nLa bioingegneria applica i principi dell'ingegneria alle scienze della vita. La biorobotica si concentra sullo sviluppo di robot ispirati a sistemi biologici. Argomenti trattati: biomeccanica, segnali biomedici, organi artificiali, protesi cibernetiche, robot esoscheletrici." 
+        : null;
+
+      const { data, error } = await supabase
+        .from('web_research_exams')
+        .insert([
+          {
+            esame_scelto: esameScelto,
+            facolta,
+            anno_universita: annoUniversita,
+            universita,
+            professore_id: professoreId || null,
+            giorni_mancanti: giorniMancanti ? parseInt(giorniMancanti) : null,
+            libri_supporto: filteredLibri,
+            link_supporto: filteredLink,
+            test_contenuto_libri: testContenutoLibri
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error('Supabase Error:', error);
+        showNotification(getSupabaseErrorMessage(error), 'error');
+      } else {
+        showNotification('Esame creato con successo! Ora puoi collegare i file.', 'success');
+        setEsameScelto('');
+        setFacolta('');
+        setAnnoUniversita('');
+        setUniversita('');
+        setLibriSupporto([{ nome: '', suddivisioni: [''], files: [] }]);
+        setLinkSupporto(['']);
+        if (data && data.length > 0) {
+          setSelectedExamId(data[0].id);
+          setCurrentStep(2);
         }
-      ])
-      .select();
-
-    if (error) {
-      console.error('Supabase Error:', error);
-      setMessage(`Errore: ${error.message}`);
-    } else {
-      setMessage('Esame creato con successo! Ora puoi collegare i file.');
-      setEsameScelto('');
-      setFacolta('');
-      setAnnoUniversita('');
-      setUniversita('');
-      setLibriSupporto([{ nome: '', suddivisioni: [''] }]);
-      setLinkSupporto(['']);
-      fetchExams();
-      if (data && data.length > 0) {
-        setSelectedExamId(data[0].id);
-        setCurrentStep(2);
       }
+    } catch (err: any) {
+      showNotification(err.message || 'Errore durante il salvataggio', 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLinkFiles = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamId) {
-      setMessage('Seleziona un esame prima di collegare i file.');
+      showNotification('Seleziona un esame prima di collegare i file.', 'error');
       return;
     }
     
     const validFiles = fileNames.filter(f => f.trim() !== '');
     if (validFiles.length === 0) {
-      setMessage('Inserisci almeno un nome file.');
+      showNotification('Inserisci almeno un nome file.', 'error');
       return;
     }
 
     setLoading(true);
-    setMessage('');
 
     const inserts = validFiles.map(filename => {
       const ext = filename.split('.').pop() || 'unknown';
@@ -168,20 +259,51 @@ export default function DevelopExamView() {
       .insert(inserts);
 
     if (error) {
-      setMessage(`Errore collegamento file: ${error.message}`);
+      console.error('Supabase Error:', error);
+      showNotification(getSupabaseErrorMessage(error), 'error');
     } else {
-      setSuccessNotification(true);
-      setTimeout(() => setSuccessNotification(false), 5000);
+      const selectedExam = exams.find(e => e.id === selectedExamId);
+      const isBio = selectedExam?.esame_scelto.toLowerCase().includes('bioingegneria');
+      
+      if (isBio) {
+        const updateField = materialType === 'professor_description' 
+          ? { test_contenuto_descrizione_prof: "CONTENUTO ESTRATTO DESCRIZIONE PROF:\nIl corso di Bioingegneria si propone di fornire le basi per l'analisi dei sistemi fisiologici. Il docente richiede particolare attenzione all'elaborazione dei segnali e alla modellistica biomeccanica." }
+          : { test_contenuto_materiale_prof: "CONTENUTO ESTRATTO MATERIALE PROF:\nSlide 1: Introduzione alla Biorobotica. Slide 2: Sensori e attuatori biomedici. Slide 3: Controllo di protesi robotiche tramite segnali EMG. Slide 4: Materiali biocompatibili per l'interazione uomo-macchina." };
+          
+        await supabase.from('web_research_exams').update(updateField).eq('id', selectedExamId);
+      }
+
+      showNotification('Materiale collegato con successo!', 'success');
       setFileNames(['']);
       setCurrentStep(1);
     }
     setLoading(false);
   };
 
-  const addLibro = () => setLibriSupporto([...libriSupporto, { nome: '', suddivisioni: [''] }]);
+  const addLibro = () => setLibriSupporto([...libriSupporto, { nome: '', suddivisioni: [''], files: [] }]);
   const updateLibroNome = (index: number, value: string) => {
     const newLibri = [...libriSupporto];
     newLibri[index].nome = value;
+    setLibriSupporto(newLibri);
+  };
+  const handleFileUpload = (index: number, newFiles: FileList | null) => {
+    if (!newFiles) return;
+    const newLibri = [...libriSupporto];
+    const currentFiles = newLibri[index].files;
+    
+    const filesToAdd = Array.from(newFiles).filter(f => f.type === 'application/pdf');
+    
+    if (currentFiles.length + filesToAdd.length > 20) {
+      showNotification('Limite massimo di 20 file per libro raggiunto.', 'error');
+      return;
+    }
+
+    newLibri[index].files = [...currentFiles, ...filesToAdd];
+    setLibriSupporto(newLibri);
+  };
+  const removeFile = (libroIndex: number, fileIndex: number) => {
+    const newLibri = [...libriSupporto];
+    newLibri[libroIndex].files = newLibri[libroIndex].files.filter((_, i) => i !== fileIndex);
     setLibriSupporto(newLibri);
   };
   const removeLibro = (index: number) => {
@@ -206,7 +328,7 @@ export default function DevelopExamView() {
 
   const addLink = () => {
     if (linkSupporto.length >= 30) {
-      setMessage('Limite massimo di 30 link raggiunto.');
+      showNotification('Limite massimo di 30 link raggiunto.', 'error');
       return;
     }
     setLinkSupporto([...linkSupporto, '']);
@@ -222,7 +344,7 @@ export default function DevelopExamView() {
 
   const addFileName = () => {
     if (fileNames.length >= 50) {
-      setMessage('Limite massimo di 50 appunti/file raggiunto.');
+      showNotification('Limite massimo di 50 appunti/file raggiunto.', 'error');
       return;
     }
     setFileNames([...fileNames, '']);
@@ -241,37 +363,192 @@ export default function DevelopExamView() {
     
     if (newMockExams.length > 0) {
       setExams([...exams, ...newMockExams as Exam[]]);
-      setMessage(`Caricati ${newMockExams.length} nuovi esami di test! Seleziona un esame dal menu a tendina.`);
+      showNotification(`Caricati ${newMockExams.length} nuovi esami di test! Seleziona un esame dal menu a tendina.`, 'success');
     } else {
-      setMessage('Tutti i dati di test sono già presenti.');
+      showNotification('Tutti i dati di test sono già presenti.', 'error');
+    }
+  };
+
+  const loadBioingegneriaTest = async () => {
+    setLoading(true);
+    try {
+      const { data: profs } = await supabase.from('professors').select('id').ilike('name', '%Carrozza%').limit(1);
+      const profId = profs?.[0]?.id || '';
+
+      setEsameScelto('Bioingegneria e Biorobotica');
+      setFacolta('Ingegneria Biomedica');
+      setAnnoUniversita('3° Anno');
+      setUniversita('Politecnico di Milano');
+      setProfessoreId(profId);
+      setGiorniMancanti('45');
+
+      const mockLibri = Array.from({ length: 4 }).map((_, bookIdx) => {
+        const dummyFiles = Array.from({ length: 10 }).map((_, fileIdx) => {
+          const content = `Titolo: Fondamenti di Bioingegneria e Biorobotica - Volume ${bookIdx + 1}, Parte ${fileIdx + 1}\n\n` +
+            `La bioingegneria è una disciplina affascinante che unisce l'ingegneria con le scienze mediche e biologiche.\n` +
+            `In questa sezione esploriamo i concetti avanzati di biomeccanica, l'elaborazione dei segnali biomedici (ECG, EEG, EMG) ` +
+            `e la progettazione di organi artificiali.\n\n` +
+            `La biorobotica, d'altra parte, si occupa della creazione di macchine che emulano il comportamento biologico. ` +
+            `Esempi includono protesi cibernetiche, robot esoscheletrici per la riabilitazione e micro-robot per la chirurgia minimamente invasiva.\n\n` +
+            `Ripetizione per riempire il file: ` + `Bioingegneria e Biorobotica. `.repeat(100);
+          return new File([content], `bioingegneria_book${bookIdx + 1}_part${fileIdx + 1}.pdf`, { type: "application/pdf" });
+        });
+        return {
+          nome: `Testo Bioingegneria Vol. ${bookIdx + 1}`,
+          suddivisioni: ['Capitoli 1-5', 'Capitoli 6-10'],
+          files: dummyFiles
+        };
+      });
+      setLibriSupporto(mockLibri);
+
+      setLinkSupporto([
+        'https://www.polimi.it/corsi/bioingegneria',
+        'https://it.wikipedia.org/wiki/Biorobotica',
+        'https://www.nature.com/subjects/biomedical-engineering'
+      ]);
+
+      setMaterialsData({
+        professor_description: {
+          frontendSectionId: 'section_prof_description',
+          fileNames: Array.from({ length: 6 }).map((_, i) => `descrizione_prof_parte_${i+1}.pdf`)
+        },
+        professor_material: {
+          frontendSectionId: 'section_prof_materials',
+          fileNames: Array.from({ length: 6 }).map((_, i) => `materiale_prof_slide_${i+1}.pdf`)
+        }
+      });
+
+      showNotification('Campi del form compilati con i dati di test Bioingegneria! Ora puoi cliccare su "Crea Esame".', 'success');
+    } catch (err: any) {
+      showNotification(err.message || 'Errore durante il caricamento', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const injectBioingegneriaDirectly = async () => {
+    setLoading(true);
+    try {
+      const { data: profs } = await supabase.from('professors').select('id').ilike('name', '%Carrozza%').limit(1);
+      const profId = profs?.[0]?.id || null;
+
+      const mockLibriSupporto = Array.from({ length: 4 }).map((_, bookIdx) => {
+        const fileUrls = Array.from({ length: 10 }).map((_, fileIdx) => 
+          `https://example.com/bioingegneria_book${bookIdx + 1}_part${fileIdx + 1}.pdf`
+        );
+        return JSON.stringify({
+          nome: `Testo Bioingegneria Vol. ${bookIdx + 1}`,
+          suddivisioni: ['Capitoli 1-5', 'Capitoli 6-10'],
+          fileUrls: fileUrls
+        });
+      });
+
+      const mockLinkSupporto = [
+        'https://www.polimi.it/corsi/bioingegneria',
+        'https://it.wikipedia.org/wiki/Biorobotica',
+        'https://www.nature.com/subjects/biomedical-engineering'
+      ];
+
+      const testContenutoLibri = "CONTENUTO ESTRATTO DAI LIBRI DI BIOINGEGNERIA:\nLa bioingegneria applica i principi dell'ingegneria alle scienze della vita. La biorobotica si concentra sullo sviluppo di robot ispirati a sistemi biologici. Argomenti trattati: biomeccanica, segnali biomedici, organi artificiali, protesi cibernetiche, robot esoscheletrici.";
+      const testContenutoDescrizione = "CONTENUTO ESTRATTO DESCRIZIONE PROF:\nIl corso di Bioingegneria si propone di fornire le basi per l'analisi dei sistemi fisiologici. Il docente richiede particolare attenzione all'elaborazione dei segnali e alla modellistica biomeccanica.";
+      const testContenutoMateriale = "CONTENUTO ESTRATTO MATERIALE PROF:\nSlide 1: Introduzione alla Biorobotica. Slide 2: Sensori e attuatori biomedici. Slide 3: Controllo di protesi robotiche tramite segnali EMG. Slide 4: Materiali biocompatibili per l'interazione uomo-macchina.";
+
+      const { data: examData, error: examError } = await supabase
+        .from('web_research_exams')
+        .insert([{
+          esame_scelto: 'Bioingegneria e Biorobotica (Mock Diretto)',
+          facolta: 'Ingegneria Biomedica',
+          anno_universita: '3° Anno',
+          universita: 'Politecnico di Milano',
+          professore_id: profId,
+          giorni_mancanti: 45,
+          libri_supporto: mockLibriSupporto,
+          link_supporto: mockLinkSupporto,
+          test_contenuto_libri: testContenutoLibri,
+          test_contenuto_descrizione_prof: testContenutoDescrizione,
+          test_contenuto_materiale_prof: testContenutoMateriale
+        }])
+        .select();
+
+      if (examError) throw examError;
+      const examId = examData[0].id;
+
+      const descInserts = Array.from({ length: 6 }).map((_, i) => ({
+        exam_id: examId,
+        frontend_section_id: 'section_prof_description',
+        material_type: 'professor_description',
+        file_kind: 'pdf',
+        scope: 'professor_description',
+        filename: `descrizione_prof_parte_${i+1}.pdf`
+      }));
+
+      const matInserts = Array.from({ length: 6 }).map((_, i) => ({
+        exam_id: examId,
+        frontend_section_id: 'section_prof_materials',
+        material_type: 'professor_material',
+        file_kind: 'pdf',
+        scope: 'professor_material',
+        filename: `materiale_prof_slide_${i+1}.pdf`
+      }));
+
+      const { error: matError } = await supabase
+        .from('exam_professor_materials')
+        .insert([...descInserts, ...matInserts]);
+
+      if (matError) throw matError;
+
+      showNotification('Esame Bioingegneria iniettato direttamente nel Database con tutti i testi!', 'success');
+      // fetchExams() is called by the realtime subscription automatically
+    } catch (err: any) {
+      showNotification(err.message || 'Errore durante l\'inserimento diretto', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto py-16 px-8">
-      <header className="mb-16">
-        <h1 className="text-5xl font-medium text-zinc-950 tracking-tighter">Sviluppo Esami</h1>
-        <p className="text-zinc-400 mt-4 font-light text-xl max-w-2xl">Configura la ricerca web e gestisci il materiale didattico in un unico hub accademico.</p>
+      <header className="mb-16 flex justify-between items-start">
+        <div>
+          <h1 className="text-5xl font-medium text-zinc-950 tracking-tighter">Sviluppo Esami</h1>
+          <p className="text-zinc-400 mt-4 font-light text-xl max-w-2xl">Configura la ricerca web e gestisci il materiale didattico in un unico hub accademico.</p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={loadBioingegneriaTest}
+            disabled={loading}
+            className="bg-zinc-50 text-zinc-700 hover:bg-zinc-100 px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 border border-zinc-200"
+          >
+            <FilePlus size={18} />
+            Compila Form Bioingegneria
+          </button>
+          <button
+            onClick={injectBioingegneriaDirectly}
+            disabled={loading}
+            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 border border-emerald-200"
+          >
+            <Database size={18} />
+            Inietta Esame in DB
+          </button>
+        </div>
       </header>
 
-      {successNotification && (
+      {notification && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-zinc-50 text-zinc-950 rounded-2xl flex items-center gap-3 font-medium shadow-sm"
+          exit={{ opacity: 0, y: -20 }}
+          className={`p-4 rounded-2xl flex items-center gap-3 font-medium shadow-sm border ${
+            notification.type === 'success' ? 'bg-zinc-50 text-zinc-950 border-zinc-200' : 'bg-red-50 text-red-900 border-red-200'
+          }`}
         >
-          <CheckCircle2 size={24} className="text-zinc-900" strokeWidth={1.5} />
-          <div>
-            <p className="font-medium tracking-tight">Esame sviluppato con successo!</p>
-            <p className="text-sm text-zinc-600 font-light">Il materiale è stato collegato. Puoi trovare l'esame nella sezione "Cronologia Esami".</p>
-          </div>
+          {notification.type === 'success' ? (
+            <CheckCircle2 size={24} className="text-zinc-900" strokeWidth={1.5} />
+          ) : (
+            <AlertCircle size={24} className="text-red-900" strokeWidth={1.5} />
+          )}
+          <p>{notification.text}</p>
         </motion.div>
-      )}
-
-      {message && !successNotification && (
-        <div className="p-4 bg-zinc-800 text-zinc-50 rounded-2xl font-medium border border-zinc-700">
-          {message}
-        </div>
       )}
 
       <div className="grid lg:grid-cols-2 gap-8">
@@ -348,6 +625,30 @@ export default function DevelopExamView() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Professore di Riferimento</label>
+                <select 
+                  value={professoreId}
+                  onChange={e => setProfessoreId(e.target.value)}
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white text-zinc-900"
+                >
+                  <option value="">-- Seleziona Professore --</option>
+                  {professors.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Giorni all'Esame</label>
+                <input 
+                  type="number" 
+                  value={giorniMancanti}
+                  onChange={e => setGiorniMancanti(e.target.value)}
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none bg-white text-zinc-900"
+                  placeholder="es. 30"
+                />
+              </div>
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-zinc-300">Libri di Supporto (Multi-livello)</label>
@@ -375,6 +676,46 @@ export default function DevelopExamView() {
                         <button type="button" onClick={() => removeLibro(bIndex)} className="p-3 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all bg-white border border-zinc-200 rounded-xl hover:shadow-[0_0_10px_rgba(220,38,38,0.2)]">
                           <X size={20} strokeWidth={1.5} />
                         </button>
+                      )}
+                    </div>
+                    
+                    {/* File Upload */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">File PDF (Max 20)</label>
+                        <label className="flex items-center gap-2 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg cursor-pointer hover:bg-zinc-50 transition-all text-xs font-medium text-zinc-700">
+                          <Plus size={14} strokeWidth={1.5} />
+                          <span>Aggiungi PDF</span>
+                          <input 
+                            type="file" 
+                            accept=".pdf" 
+                            multiple
+                            className="hidden" 
+                            onChange={e => handleFileUpload(bIndex, e.target.files)}
+                          />
+                        </label>
+                      </div>
+                      
+                      {libro.files.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2">
+                          {libro.files.map((file, fIndex) => (
+                            <div key={fIndex} className="flex items-center justify-between p-2 bg-white border border-zinc-100 rounded-lg group">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <FileText size={14} className="text-emerald-600 shrink-0" />
+                                <span className="text-xs text-zinc-600 truncate">{file.name}</span>
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => removeFile(bIndex, fIndex)}
+                                className="p-1 text-zinc-400 hover:text-red-500 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-400 italic">Nessun file caricato.</p>
                       )}
                     </div>
                     
@@ -435,6 +776,11 @@ export default function DevelopExamView() {
                         placeholder="https://..."
                       />
                     </div>
+                    {link && (
+                      <a href={link} target="_blank" rel="noopener noreferrer" className="p-3 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 transition-all bg-white border border-zinc-200 rounded-xl" title="Test Link">
+                        <ExternalLink size={20} strokeWidth={1.5} />
+                      </a>
+                    )}
                     {linkSupporto.length > 1 && (
                       <button type="button" onClick={() => removeLink(index)} className="p-3 text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all bg-white border border-zinc-200 rounded-xl hover:shadow-[0_0_10px_rgba(220,38,38,0.2)]">
                         <X size={20} strokeWidth={1.5} />

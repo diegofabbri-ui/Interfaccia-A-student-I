@@ -21,9 +21,6 @@ const query = `
 CREATE TABLE IF NOT EXISTS public.user_progress (
   id uuid NOT NULL DEFAULT gen_random_uuid (),
   streak_days integer null default 0,
-  level integer null default 1,
-  xp_current integer null default 0,
-  xp_total integer null default 0,
   average_grade numeric(3, 1) null default 0.0,
   exams_passed integer null default 0,
   exams_total integer null default 0,
@@ -47,8 +44,8 @@ CREATE TABLE IF NOT EXISTS public.study_sessions (
 );
 
 -- 3. Insert default progress if empty
-INSERT INTO public.user_progress (user_id, streak_days, level, xp_current, xp_total, average_grade, exams_passed, exams_total, total_study_hours, topics_completed, simulations_completed, studio_streak_days)
-SELECT 'default_user', 5, 3, 450, 2450, 27.5, 4, 12, 120, 45, 12, 8
+INSERT INTO public.user_progress (user_id, streak_days, average_grade, exams_passed, exams_total, total_study_hours, topics_completed, simulations_completed, studio_streak_days)
+SELECT 'default_user', 5, 27.5, 4, 12, 120, 45, 12, 8
 WHERE NOT EXISTS (SELECT 1 FROM public.user_progress);
 
 -- 4. Insert dummy sessions for the last 30 days to populate charts

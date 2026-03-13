@@ -17,6 +17,7 @@ type StudyPlan = {
   }[];
   dailyTasks: { phase: string; material: string; deadline: string; status: string }[];
   dailyDeliverables: {
+    videos: { title: string; script: string }[];
     flashcards: { front: string; back: string }[];
     quizzes: { question: string; options: string[]; correctAnswer: string }[];
     audios: { title: string; dialogue: string }[];
@@ -31,7 +32,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
   const [expandedBlock, setExpandedBlock] = useState<string | null>(null);
   const [fetchedNotes, setFetchedNotes] = useState<string[]>([]);
   const [systemError, setSystemError] = useState<string | null>(null);
-  const [activeDeliverable, setActiveDeliverable] = useState<{ type: 'flashcard' | 'quiz' | 'audio', data: any, title: string } | null>(null);
+  const [activeDeliverable, setActiveDeliverable] = useState<{ type: 'video' | 'flashcard' | 'quiz' | 'audio', data: any, title: string } | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [generatingVisuals, setGeneratingVisuals] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -62,6 +63,31 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       }
     };
     fetchMaterials();
+
+    if (exam?.id && !exam.id.startsWith('mock-')) {
+      const channel = supabase
+        .channel(`materials-channel-${exam.id}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'exam_professor_materials',
+          filter: `exam_id=eq.${exam.id}`
+        }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setFetchedNotes(prev => [...prev, payload.new.filename]);
+          } else if (payload.eventType === 'DELETE') {
+            setFetchedNotes(prev => prev.filter(f => f !== payload.old.filename));
+          } else if (payload.eventType === 'UPDATE') {
+            // Assuming filename is the identifier for now, might need to be more robust
+            setFetchedNotes(prev => prev.map(f => f === payload.old.filename ? payload.new.filename : f));
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [exam]);
 
   // Parse data for materials based on limits
@@ -70,12 +96,14 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       const parsed = JSON.parse(l);
       return {
         name: parsed.nome || l,
-        files: parsed.suddivisioni || []
+        files: parsed.suddivisioni || [],
+        pdfUrls: parsed.fileUrls || (parsed.fileUrl ? [parsed.fileUrl] : [])
       };
     } catch (e) {
       return {
         name: l,
-        files: []
+        files: [],
+        pdfUrls: []
       };
     }
   }) || [];
@@ -257,10 +285,10 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       setSystemError("Limite superato: massimo 50 file di appunti consentiti.");
       return;
     }
-    // Assuming books.files represents PDFs per book
+    // Assuming books.pdfUrls represents PDFs per book
     for (const book of books) {
-      if (book.files.length > 20) {
-        setSystemError(`Limite superato: massimo 20 PDF/suddivisioni per il libro "${book.name}".`);
+      if (book.pdfUrls.length > 20) {
+        setSystemError(`Limite superato: massimo 20 PDF per il libro "${book.name}".`);
         return;
       }
     }
@@ -521,6 +549,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       case 'libro': return '#3b82f6'; // blue-500
       case 'link': return '#22c55e'; // green-500
       case 'appunto': return '#eab308'; // yellow-500
+      case 'video': return '#ef4444'; // red-500
       case 'flashcard': return '#f472b6'; // pink-400
       case 'quiz': return '#fb923c'; // orange-400
       case 'audio': return '#818cf8'; // indigo-400
@@ -552,6 +581,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
       { phase: "In attesa di generazione...", material: "-", deadline: "-", status: "-" }
     ],
     dailyDeliverables: {
+      videos: [{ title: "In attesa di generazione...", script: "..." }],
       flashcards: [{ front: "In attesa di generazione...", back: "..." }],
       quizzes: [{ question: "In attesa di generazione...", options: ["A", "B", "C", "D"], correctAnswer: "A" }],
       audios: [{ title: "In attesa di generazione...", dialogue: "..." }]
@@ -751,12 +781,30 @@ export default function StudyDashboard({ exam }: { exam: any }) {
 
             <div>
               <h3 className="font-semibold text-text-primary mb-4">Deliverables Obbligatori (Generati per Oggi)</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <GlowWrapper opacity={0.3} glowColor={getGlowColor('video')} className="h-full">
+                  <div
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center"><Video size={20} /></div>
+                      <div className="font-bold text-text-primary text-lg">1 Video</div>
+                    </div>
+                    <ul className="text-sm text-text-secondary space-y-2 list-none">
+                      {displayPlan.dailyDeliverables.videos?.map((v, i) => (
+                        <li key={i}>
+                          <button onClick={() => setActiveDeliverable({ type: 'video', data: v, title: v.title })} className="text-left hover:text-red-600 transition-colors flex items-start gap-2">
+                            <span className="text-red-600 mt-0.5">•</span>
+                            <span className="font-medium">{v.title}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </GlowWrapper>
                 <GlowWrapper opacity={0.3} glowColor={getGlowColor('flashcard')} className="h-full">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  <div
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-status-info-bg text-status-info rounded-full flex items-center justify-center"><FileText size={20} /></div>
@@ -770,13 +818,11 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                         </button>
                       </li>
                     </ul>
-                  </motion.div>
+                  </div>
                 </GlowWrapper>
                 <GlowWrapper opacity={0.3} glowColor={getGlowColor('quiz')} className="h-full">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  <div
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-status-success-bg text-status-success rounded-full flex items-center justify-center"><BrainCircuit size={20} /></div>
@@ -790,13 +836,11 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                         </button>
                       </li>
                     </ul>
-                  </motion.div>
+                  </div>
                 </GlowWrapper>
                 <GlowWrapper opacity={0.3} glowColor={getGlowColor('audio')} className="h-full">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full"
+                  <div
+                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-brand-secondary text-brand-primary rounded-full flex items-center justify-center"><Mic size={20} /></div>
@@ -812,7 +856,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                         </li>
                       ))}
                     </ul>
-                  </motion.div>
+                  </div>
                 </GlowWrapper>
               </div>
             </div>
@@ -907,6 +951,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             >
               <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-bg-base/50">
                 <div className="flex items-center gap-3">
+                  {activeDeliverable.type === 'video' && <div className="p-2 bg-red-100 text-red-600 rounded-button"><Video size={24} /></div>}
                   {activeDeliverable.type === 'flashcard' && <div className="p-2 bg-status-info-bg text-status-info rounded-button"><FileText size={24} /></div>}
                   {activeDeliverable.type === 'quiz' && <div className="p-2 bg-status-success-bg text-status-success rounded-button"><BrainCircuit size={24} /></div>}
                   {activeDeliverable.type === 'audio' && <div className="p-2 bg-brand-secondary text-brand-primary rounded-button"><Mic size={24} /></div>}
@@ -1022,6 +1067,27 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                       </h5>
                       <div className="whitespace-pre-wrap font-medium text-text-primary leading-relaxed bg-bg-base p-8 rounded-2xl border border-border-subtle italic shadow-inner">
                         {activeDeliverable.data.dialogue}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeDeliverable.type === 'video' && (
+                  <div className="space-y-6">
+                    <div className="bg-bg-base border border-border-subtle rounded-2xl overflow-hidden shadow-sm p-8">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center shadow-inner">
+                          <Video size={32} />
+                        </div>
+                        <div>
+                          <h4 className="text-2xl font-bold text-text-primary">{activeDeliverable.data.title}</h4>
+                          <p className="text-text-secondary font-medium">Script Video</p>
+                        </div>
+                      </div>
+                      <div className="prose prose-zinc max-w-none">
+                        <div className="whitespace-pre-wrap font-medium text-text-primary leading-relaxed bg-surface-primary p-6 rounded-xl border border-border-subtle shadow-inner">
+                          {activeDeliverable.data.script}
+                        </div>
                       </div>
                     </div>
                   </div>

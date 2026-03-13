@@ -24,16 +24,13 @@ ADD COLUMN IF NOT EXISTS user_id TEXT DEFAULT 'default_user';
 
 -- Update the default row if it exists, or insert it
 INSERT INTO public.user_progress (
-  streak_days, level, xp_current, xp_total, average_grade, 
+  streak_days, average_grade, 
   exams_passed, exams_total, total_study_hours, topics_completed, 
   simulations_completed, studio_streak_days, user_id
 )
-VALUES (0, 1, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 'default_user')
+VALUES (0, 0.0, 0, 0, 0, 0, 0, 0, 'default_user')
 ON CONFLICT (id) DO UPDATE SET
   streak_days = EXCLUDED.streak_days,
-  level = EXCLUDED.level,
-  xp_current = EXCLUDED.xp_current,
-  xp_total = EXCLUDED.xp_total,
   average_grade = EXCLUDED.average_grade,
   exams_passed = EXCLUDED.exams_passed,
   exams_total = EXCLUDED.exams_total,

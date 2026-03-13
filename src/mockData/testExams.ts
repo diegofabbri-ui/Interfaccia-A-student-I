@@ -14,7 +14,8 @@ export const mockExams = [
           'Capitolo 3: Dinamica del punto materiale', 
           'Capitolo 4: Lavoro ed energia', 
           'Capitolo 5: Sistemi di punti materiali e urti'
-        ]
+        ],
+        fileUrls: []
       }),
       JSON.stringify({
         nome: 'Problemi di Fisica Generale (Mencuccini, Silvestrini)',
@@ -22,7 +23,8 @@ export const mockExams = [
           'Esercizi 1-20: Cinematica', 
           'Esercizi 21-50: Dinamica', 
           'Esercizi 51-80: Conservazione dell\'energia'
-        ]
+        ],
+        fileUrls: []
       })
     ],
     link_supporto: [
@@ -56,7 +58,8 @@ export const mockExams = [
           'Capitolo 3: Il Cubismo', 
           'Capitolo 4: Il Futurismo', 
           'Capitolo 5: L\'Astrattismo'
-        ]
+        ],
+        fileUrls: []
       })
     ],
     link_supporto: [

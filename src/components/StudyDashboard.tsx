@@ -5,6 +5,7 @@ import GlowWrapper from './GlowWrapper';
 import { supabase } from '../supabase';
 import { GoogleGenAI, Type } from '@google/genai';
 import ProgressDashboard from './ProgressDashboard';
+import StudyPlanMindMap from './StudyPlanMindMap';
 
 // Initialize Gemini with the provided API key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -13,9 +14,14 @@ type StudyPlan = {
   macroInventory: { name: string; type: string; details: string }[];
   mediumBlocks: {
     blockName: string;
+    durationDays: number;
     assignedMaterial: { material: string; type: string }[];
+    dailyBlocks?: {
+      day: number;
+      dateLabel: string;
+      tasks: { phase: string; material: string; deadline: string; status: string }[];
+    }[];
   }[];
-  dailyTasks: { phase: string; material: string; deadline: string; status: string }[];
   dailyDeliverables: {
     videos: { title: string; script: string }[];
     flashcards: { front: string; back: string }[];
@@ -321,16 +327,15 @@ export default function StudyDashboard({ exam }: { exam: any }) {
         - Fraziona i 60 giorni in blocchi di 5 giorni.
         - Distribuisci il carico di lettura dei libri in modo uniforme.
         - Associa i metadati {Appunti} e {Link} ai blocchi di 5 giorni con rigorosa pertinenza semantica.
-        - Genera una tabella dati intermedia per ogni blocco (mediumBlocks).
+        - Genera una tabella dati intermedia per ogni blocco (mediumBlocks), specificando la durata in giorni (durationDays).
+        - SOLO PER IL PRIMO BLOCCO MEDIO (es. Giorni 1-5), genera il dettaglio per OGNI SINGOLO GIORNO (es. 5 giorni = 5 blocchi giornalieri in dailyBlocks). Per gli altri blocchi medi, lascia l'array dailyBlocks vuoto.
 
-        Fase 3: Gestione Area Piccola (Singolo Giorno - Giorno 1)
-        - Isola il carico di studio per il giorno corrente (Giorno 1).
-        - Genera i task operativi solo per oggi (dailyTasks).
-        - Genera obbligatoriamente i CONTENUTI REALI per i deliverables per oggi: 
+        Fase 3: Gestione Area Piccola (Deliverables del Giorno 1)
+        - SOLO PER IL GIORNO 1, genera i CONTENUTI REALI per i deliverables: 
           - 1 Set di Flashcard: Genera un set di 3 flashcard (fronte/retro) sui concetti chiave.
           - 1 Quiz di verifica: Genera un quiz a risposta multipla di 3 domande (con 4 opzioni e la risposta corretta).
           - 1 Traccia Audio: Genera 1 script per podcast a due voci (stile NotebookLM Audio Overview) dove due host discutono i concetti di oggi in modo colloquiale e approfondito. Dividi lo script in esattamente 6 scene inserendo i marcatori [SCENE 1], [SCENE 2], ..., [SCENE 6] all'inizio di ogni cambio di argomento nel dialogo.
-        - Definisci il contesto di memoria per il Copilot (solo materiale di oggi).
+        - Definisci il contesto di memoria per il Copilot (solo materiale del Giorno 1).
 
         Vincoli:
         - I deliverables non devono essere solo titoli, ma materiale reale e pronto all'uso come descritto.
@@ -365,6 +370,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                   type: Type.OBJECT,
                   properties: {
                     blockName: { type: Type.STRING, description: "Nome del blocco (es. Blocco 1: Giorni 1-5)" },
+                    durationDays: { type: Type.NUMBER, description: "Numero di giorni in questo blocco (es. 5)" },
                     assignedMaterial: {
                       type: Type.ARRAY,
                       items: {
@@ -375,22 +381,34 @@ export default function StudyDashboard({ exam }: { exam: any }) {
                         },
                         required: ["material", "type"]
                       }
+                    },
+                    dailyBlocks: {
+                      type: Type.ARRAY,
+                      description: "Dettaglio giornaliero per ogni giorno di questo blocco (es. 5 elementi per il primo blocco, vuoto per gli altri)",
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          day: { type: Type.NUMBER, description: "Numero del giorno (es. 1, 2, 3...)" },
+                          dateLabel: { type: Type.STRING, description: "Etichetta del giorno (es. Giorno 1)" },
+                          tasks: {
+                            type: Type.ARRAY,
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                phase: { type: Type.STRING },
+                                material: { type: Type.STRING },
+                                deadline: { type: Type.STRING },
+                                status: { type: Type.STRING }
+                              },
+                              required: ["phase", "material", "deadline", "status"]
+                            }
+                          }
+                        },
+                        required: ["day", "dateLabel", "tasks"]
+                      }
                     }
                   },
-                  required: ["blockName", "assignedMaterial"]
-                }
-              },
-              dailyTasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    phase: { type: Type.STRING },
-                    material: { type: Type.STRING },
-                    deadline: { type: Type.STRING },
-                    status: { type: Type.STRING }
-                  },
-                  required: ["phase", "material", "deadline", "status"]
+                  required: ["blockName", "durationDays", "assignedMaterial", "dailyBlocks"]
                 }
               },
               dailyDeliverables: {
@@ -450,7 +468,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
               },
               copilotContext: { type: Type.STRING, description: "Contesto per il Copilot basato solo sul materiale di oggi" }
             },
-            required: ["macroInventory", "mediumBlocks", "dailyTasks", "dailyDeliverables", "copilotContext"]
+            required: ["macroInventory", "mediumBlocks", "dailyDeliverables", "copilotContext"]
           }
         }
       });
@@ -464,7 +482,70 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             jsonText = match[1];
           }
         }
-        setStudyPlan(JSON.parse(jsonText));
+        const parsedPlan = JSON.parse(jsonText);
+
+        // Save generated blocks to Supabase and populate placeholders
+        try {
+          if (parsedPlan.mediumBlocks && parsedPlan.mediumBlocks.length > 0) {
+            let allBlocksToInsert: any[] = [];
+            let currentDay = 1;
+
+            parsedPlan.mediumBlocks.forEach((block: any) => {
+              // If AI provided daily blocks for this medium block, use them
+              if (block.dailyBlocks && block.dailyBlocks.length > 0) {
+                block.dailyBlocks.forEach((db: any) => {
+                  allBlocksToInsert.push({
+                    exam_id: exam.id,
+                    medium_block_name: block.blockName,
+                    day_number: db.day || currentDay,
+                    date_label: db.dateLabel || `Giorno ${currentDay}`,
+                    tasks: db.tasks || [],
+                    status: 'pending'
+                  });
+                  currentDay++;
+                });
+              } else {
+                // Otherwise, generate placeholder daily blocks for this medium block
+                // using durationDays
+                block.dailyBlocks = [];
+                const daysToGenerate = block.durationDays || 5;
+                for (let i = 0; i < daysToGenerate; i++) {
+                  const newBlock = {
+                    day: currentDay,
+                    dateLabel: `Giorno ${currentDay}`,
+                    tasks: [{ phase: "Pianificazione Futura", material: "Da definire", deadline: "-", status: "pending" }]
+                  };
+                  block.dailyBlocks.push(newBlock);
+                  allBlocksToInsert.push({
+                    exam_id: exam.id,
+                    medium_block_name: block.blockName,
+                    day_number: currentDay,
+                    date_label: `Giorno ${currentDay}`,
+                    tasks: newBlock.tasks,
+                    status: 'pending'
+                  });
+                  currentDay++;
+                }
+              }
+            });
+
+            if (allBlocksToInsert.length > 0) {
+              const { error: insertError } = await supabase
+                .from('study_plan_blocks')
+                .insert(allBlocksToInsert);
+                
+              if (insertError) {
+                console.error("Error saving blocks to Supabase:", insertError);
+              } else {
+                console.log("Blocks saved to Supabase successfully.");
+              }
+            }
+          }
+        } catch (dbError) {
+          console.error("Error saving to db:", dbError);
+        }
+
+        setStudyPlan(parsedPlan);
       }
     } catch (error: any) {
       if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
@@ -566,19 +647,27 @@ export default function StudyDashboard({ exam }: { exam: any }) {
     mediumBlocks: [
       {
         blockName: "Blocco 1: Giorni 1-5 (Esempio)",
+        durationDays: 5,
         assignedMaterial: [
           { material: "In attesa di generazione...", type: "-" }
+        ],
+        dailyBlocks: [
+          {
+            day: 1,
+            dateLabel: "Giorno 1",
+            tasks: [
+              { phase: "In attesa di generazione...", material: "-", deadline: "-", status: "-" }
+            ]
+          }
         ]
       },
       {
         blockName: "Blocco 2: Giorni 6-10 (Esempio)",
+        durationDays: 5,
         assignedMaterial: [
           { material: "In attesa di generazione...", type: "-" }
         ]
       }
-    ],
-    dailyTasks: [
-      { phase: "In attesa di generazione...", material: "-", deadline: "-", status: "-" }
     ],
     dailyDeliverables: {
       videos: [{ title: "In attesa di generazione...", script: "..." }],
@@ -671,196 +760,7 @@ export default function StudyDashboard({ exam }: { exam: any }) {
             <ProgressDashboard />
           </div>
 
-          {/* Fase 1: Macro Area */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel rounded-3xl p-8 shadow-elevation-card space-y-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-brand-secondary text-brand-primary rounded-widget">
-                <Database size={24} />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-text-primary">Fase 1: Macro Area</h2>
-                <p className="text-text-secondary text-sm">Inventario Globale (60 Giorni)</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayPlan.macroInventory.map((item, idx) => (
-                <GlowWrapper key={idx} opacity={0.3} glowColor={getGlowColor(item.type)} className="h-full">
-                  <div className="bg-bg-base p-6 rounded-widget border border-border-subtle flex flex-col gap-2 hover:shadow-lg hover:border-zinc-400 transition-all duration-300 h-full">
-                    <div className="font-bold text-text-primary text-lg">{item.name}</div>
-                    <div className="text-sm text-text-secondary">{item.details}</div>
-                    <div className="mt-auto pt-4">
-                      <span className="inline-block bg-surface-interactive text-text-primary px-2.5 py-1 rounded-md text-xs font-medium">{item.type}</span>
-                    </div>
-                  </div>
-                </GlowWrapper>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Fase 2: Aree Medie */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel rounded-3xl p-8 shadow-elevation-card space-y-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-brand-secondary text-brand-primary rounded-widget">
-                <Calendar size={24} />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-text-primary">Fase 2: Aree Medie</h2>
-                <p className="text-text-secondary text-sm">Mappa Mentale Verticale (Blocchi di 5 Giorni)</p>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              {displayPlan.mediumBlocks.map((block) => (
-                <GlowWrapper key={block.blockName} opacity={0.3} glowColor="#a855f7" className="h-full">
-                  <div className="bg-bg-base border border-border-subtle rounded-widget overflow-hidden h-full flex flex-col">
-                    <div className="p-5 bg-brand-secondary border-b border-border-subtle">
-                      <span className="font-semibold text-lg text-brand-primary">{block.blockName}</span>
-                    </div>
-                    <div className="p-6 bg-surface-primary flex-1">
-                      <h4 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Materiale Assegnato</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {block.assignedMaterial.map((mat, idx) => (
-                          <div key={idx} className="bg-bg-base p-4 rounded-widget border border-border-subtle flex flex-col gap-2">
-                            <div className="font-medium text-text-primary">{mat.material}</div>
-                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium w-fit ${
-                              mat.type.toLowerCase().includes('libro') ? 'bg-brand-secondary text-brand-primary' :
-                              mat.type.toLowerCase().includes('link') ? 'bg-status-success-bg text-status-success' :
-                              'bg-status-warning-bg text-status-warning'
-                            }`}>{mat.type}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </GlowWrapper>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Fase 3: Area Piccola */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel rounded-3xl p-8 shadow-elevation-card space-y-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-brand-secondary text-brand-primary rounded-widget">
-                <Target size={24} />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-text-primary">Fase 3: Area Piccola</h2>
-                <p className="text-text-secondary text-sm">Isolamento Oggi (Giorno 1)</p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-text-primary mb-4">Task Operativi (Giorno 1)</h3>
-              <div className="space-y-8">
-                {displayPlan.dailyTasks.map((task, idx) => (
-                  <GlowWrapper key={idx} opacity={0.3} glowColor="#a855f7" className="h-full">
-                    <div className="bg-surface-primary border border-border-subtle rounded-widget p-6 hover:shadow-elevation-card transition-all duration-300">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="px-2.5 py-1 bg-brand-secondary text-brand-primary rounded-md text-xs font-bold uppercase tracking-wider">
-                              {task.phase}
-                            </span>
-                            <span className="px-2.5 py-1 bg-status-warning-bg text-status-warning rounded-md text-xs font-medium">
-                              {task.status}
-                            </span>
-                          </div>
-                          <p className="text-text-primary font-medium text-lg">{task.material}</p>
-                        </div>
-                        <div className="flex items-center gap-2 text-text-secondary bg-bg-base px-4 py-2 rounded-lg border border-border-subtle shrink-0">
-                          <Clock size={16} className="text-brand-primary" />
-                          <span className="text-sm font-medium">{task.deadline}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </GlowWrapper>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-text-primary mb-4">Deliverables Obbligatori (Generati per Oggi)</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <GlowWrapper opacity={0.3} glowColor={getGlowColor('video')} className="h-full">
-                  <div
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center"><Video size={20} /></div>
-                      <div className="font-bold text-text-primary text-lg">1 Video</div>
-                    </div>
-                    <ul className="text-sm text-text-secondary space-y-2 list-none">
-                      {displayPlan.dailyDeliverables.videos?.map((v, i) => (
-                        <li key={i}>
-                          <button onClick={() => setActiveDeliverable({ type: 'video', data: v, title: v.title })} className="text-left hover:text-red-600 transition-colors flex items-start gap-2">
-                            <span className="text-red-600 mt-0.5">•</span>
-                            <span className="font-medium">{v.title}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </GlowWrapper>
-                <GlowWrapper opacity={0.3} glowColor={getGlowColor('flashcard')} className="h-full">
-                  <div
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-status-info-bg text-status-info rounded-full flex items-center justify-center"><FileText size={20} /></div>
-                      <div className="font-bold text-text-primary text-lg">1 Set Flashcard</div>
-                    </div>
-                    <ul className="text-sm text-text-secondary space-y-2 list-none">
-                      <li>
-                        <button onClick={() => setActiveDeliverable({ type: 'flashcard', data: displayPlan.dailyDeliverables.flashcards, title: 'Set di Flashcard' })} className="text-left hover:text-status-info transition-colors flex items-start gap-2">
-                          <span className="text-status-info mt-0.5">•</span>
-                          <span className="font-medium">Apri Set ({displayPlan.dailyDeliverables.flashcards.length} carte)</span>
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </GlowWrapper>
-                <GlowWrapper opacity={0.3} glowColor={getGlowColor('quiz')} className="h-full">
-                  <div
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-status-success-bg text-status-success rounded-full flex items-center justify-center"><BrainCircuit size={20} /></div>
-                      <div className="font-bold text-text-primary text-lg">1 Quiz</div>
-                    </div>
-                    <ul className="text-sm text-text-secondary space-y-2 list-none">
-                      <li>
-                        <button onClick={() => setActiveDeliverable({ type: 'quiz', data: displayPlan.dailyDeliverables.quizzes, title: 'Quiz di Verifica' })} className="text-left hover:text-status-success transition-colors flex items-start gap-2">
-                          <span className="text-status-success mt-0.5">•</span>
-                          <span className="font-medium">Avvia Quiz ({displayPlan.dailyDeliverables.quizzes.length} domande)</span>
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </GlowWrapper>
-                <GlowWrapper opacity={0.3} glowColor={getGlowColor('audio')} className="h-full">
-                  <div
-                    className="bg-gradient-to-br from-zinc-50/50 to-zinc-100/50 animate-gradient-move p-6 rounded-widget border border-border-subtle flex flex-col gap-4 hover:border-zinc-500 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 h-full"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-brand-secondary text-brand-primary rounded-full flex items-center justify-center"><Mic size={20} /></div>
-                      <div className="font-bold text-text-primary text-lg">1 Audio</div>
-                    </div>
-                    <ul className="text-sm text-text-secondary space-y-2 list-none">
-                      {displayPlan.dailyDeliverables.audios.map((a, i) => (
-                        <li key={i}>
-                          <button onClick={() => setActiveDeliverable({ type: 'audio', data: a, title: a.title })} className="text-left hover:text-brand-primary transition-colors flex items-start gap-2">
-                            <span className="text-brand-primary mt-0.5">•</span>
-                            <span className="font-medium">{a.title}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </GlowWrapper>
-              </div>
-            </div>
-          </motion.div>
+          <StudyPlanMindMap plan={displayPlan} examName={examName} onDeliverableClick={setActiveDeliverable} />
 
           {/* 4. Copilot Giornaliero */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel rounded-3xl shadow-elevation-card overflow-hidden flex flex-col h-[500px]">
